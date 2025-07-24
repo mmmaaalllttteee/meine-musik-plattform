@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plattform-Vorschau</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .prose { max-width: 65ch; } .dark .dark\:prose-invert { color: #d1d5db; }
+        .input-style { background-color: white; color: black; border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem 0.75rem; width: 100%; margin-top: 0.25rem; }
+        .dark .input-style { background-color: #1f2937; color: white; border-color: #4b5563; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Import React Hooks
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- MOCK DATA & ASSETS (for all components) ---
+        const platformLogos = { 'Instagram': 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png', 'Spotify': 'https://upload.wikimedia.org/wikipedia/commons/2/26/Spotify_logo_with_text.svg', 'Google Analytics 4': 'https://www.gstatic.com/analytics-suite/header/suite/v2/ic_analytics.svg', 'TikTok Organic': 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png', 'Facebook Ads': 'https://upload.wikimedia.org/wikipedia/commons/6/6c/Facebook_Ads_logo.svg', 'Stripe': 'https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg' };
+        const kpiLabels = { total_followers: 'Follower insgesamt', reel_views: 'Reel Aufrufe', total_users: 'Nutzer insgesamt', engagement_rate: 'Engagement-Rate' };
+        const availablePlatforms = [ { id: 'google_analytics_4', name: 'Google Analytics 4' }, { id: 'instagram', name: 'Instagram' }, { id: 'tiktok_organic', name: 'TikTok Organic' }, { id: 'facebook_ads', name: 'Facebook Ads' }, { id: 'stripe', name: 'Stripe' } ];
+        const mockIntegrations = { 'int_ga4_123': { id: 'int_ga4_123', platform: 'Google Analytics 4', accountName: 'Mein Online-Shop', status: 'connected' }, 'int_ig_456': { id: 'int_ig_456', platform: 'Instagram', accountName: '@neondreams_band', status: 'connected' }, 'int_tiktok_789': { id: 'int_tiktok_789', platform: 'TikTok Organic', accountName: 'neondreams_official', status: 'pending' } };
+        const mockDashboards = [ { id: 'dash_1', name: 'Album Release "Neon Dreams" - Performance', logoUrl: 'https://placehold.co/100x40/1a1a1a/ffffff?text=ND', widgets: [ { id: 'w1', integrationId: 'int_ig_456', kpi: 'total_followers', timeFrame: 'last_30_days', w: 4, h: 2 }, { id: 'w2', integrationId: 'int_ig_456', kpi: 'reel_views', timeFrame: 'last_7_days', w: 4, h: 2 }, { id: 'w3', integrationId: 'int_ga4_123', kpi: 'total_users', timeFrame: 'last_30_days', w: 4, h: 2 }, { id: 'w4', integrationId: 'int_ga4_123', kpi: 'engagement_rate', timeFrame: 'last_30_days', w: 8, h: 2 } ] } ];
+        const mockDashboardData = { user: { name: 'Alex', avatarUrl: 'https://placehold.co/100x100/EBF4FF/1a1a1a?text=A' }, recentActivity: [ { id: 'act1', type: 'task_completed', text: 'Pressemitteilung entwerfen', project: 'Album Release "Neon Dreams"', time: 'vor 2 Stunden' }, { id: 'act2', type: 'moodboard_item', text: 'Neues Bild zu "Cover Artwork" hinzugefügt', project: 'Album Release "Neon Dreams"', time: 'vor 5 Stunden' } ], keyKpis: [ { platform: 'Instagram', kpi: 'Follower insgesamt', value: '48.152', change: 1.2 }, { platform: 'Spotify', kpi: 'Monatliche Hörer', value: '1.2M', change: 5.3 }, { platform: 'Google Analytics 4', kpi: 'Nutzer (letzte 7 Tage)', value: '12.830', change: -2.1 } ], learningProgress: { pathTitle: 'Onboarding für neue Künstler:innen', progress: 75 }, complyStatus: { lastCheck: '15. Juli 2025', score: '4/5' } };
+        const initialProjectData = { id: 'proj_1', name: 'Album Release "Neon Dreams"', moodboards: [ { id: 'mood_1', title: 'Cover Artwork & Visuals', items: [ { id: 'item_1', type: 'image', content: 'https://placehold.co/600x400/1a1a1a/ffffff?text=Inspiration+1', x: 50, y: 50, w: 250, h: 180 }, { id: 'item_2', type: 'text', content: 'Key Words: Retro, 80s, Chrome, Sunset', x: 350, y: 80, w: 200, h: 100 }, { id: 'item_3', type: 'image', content: 'https://placehold.co/600x400/4a4a4a/ffffff?text=Inspiration+2', x: 80, y: 280, w: 300, h: 200 }, { id: 'item_4', type: 'video', content: 'Video-Referenz', x: 420, y: 250, w: 220, h: 150 } ] } ], taskboards: [ { id: 'task_1', title: 'Marketing & PR Plan', sections: [ { id: 'sec_1', title: 'To Do', tasks: [ { id: 't_1', title: 'Pressemitteilung entwerfen', priority: 'high', assignee: 'Anna', dueDate: '2025-08-15' }, { id: 't_2', title: 'Social Media Grafiken erstellen', priority: 'medium', assignee: 'Max', dueDate: '2025-08-20' } ] }, { id: 'sec_2', title: 'In Progress', tasks: [ { id: 't_3', title: 'Interview-Partner anfragen', priority: 'high', assignee: 'Anna' } ] }, { id: 'sec_3', title: 'Done', tasks: [ { id: 't_4', title: 'Marketing-Budget finalisieren', priority: 'medium', assignee: 'Chris', dueDate: '2025-07-20' } ] } ] } ] };
+        const mockCmsData = { data: [ { id: 1, title: "Bandübernahmevertrag (Standard)", description: "Ein Standardvertrag zur Übertragung der Master-Rechte.", category: "Verträge", files: { docx: "#", pdf: "#" }, tags: ["Recording", "Rechte", "Label"] }, { id: 2, title: "Booking-Anfrage (Vorlage)", description: "Vorlage für Anfragen an Veranstalter.", category: "Booking", files: { docx: "#" }, tags: ["Live", "Konzert"] }, { id: 3, title: "Pressekit-Checkliste", description: "Alle wichtigen Inhalte für ein Pressekit.", category: "Best Practices", files: { pdf: "#", notion: "#" }, tags: ["PR", "Marketing", "EPK"] } ] };
+        const mockKnowledgeBase = { data: [ { id: 'kb-1', title: "Wie richte ich mein E-Mail-Konto ein?", category: "Setup", tags: ["email", "mdm"] }, { id: 'kb-2', title: "Was ist ein AV-Vertrag?", category: "DSGVO", tags: ["datenschutz", "vertrag"] }, { id: 'kb-3', title: "Wie teile ich ein Moodboard?", category: "Kollaboration", tags: ["moodboard", "sharing"] } ] };
+        const mockLearningPaths = [ { id: 'lp1', title: "Onboarding für neue Künstler:innen", description: "Alle Grundlagen für einen erfolgreichen Start.", targetRole: "Künstler", modules: [ { id: 'm1-1', title: "Willkommen im Team!", type: 'video' }, { id: 'm1-2', title: "Unsere Kommunikations-Tools", type: 'text', content: 'Wir nutzen Slack für die tägliche Kommunikation und Asana für das Projektmanagement...' }, { id: 'm1-3', title: "Grundlagen der GEMA-Meldung", type: 'text', content: 'Jeder Live-Auftritt muss gemeldet werden...' }, { id: 'm1-4', title: "Wissens-Check: Kommunikation", type: 'quiz', content: { question: "Welches Tool nutzen wir für das Projektmanagement?", options: ["Slack", "Asana", "Trello"], correctAnswerIndex: 1 }} ] }, { id: 'lp2', title: "Einführung für Freelance-Booker", description: "So arbeitest du effektiv mit uns.", targetRole: "Freelancer", modules: [ { id: 'm2-1', title: "Übersicht unserer Künstler-Roster", type: 'text' }, { id: 'm2-2', title: "Der Booking-Prozess", type: 'video' }, { id: 'm2-3', title: "Wissens-Check: Verträge", type: 'quiz', content: { question: "Wo findest du die Vertragsvorlagen?", options: ["Google Drive", "SmartLibrary"], correctAnswerIndex: 1 }} ] } ];
+        const dsgvoQuestions = [ { id: 'q1', text: "Führst du ein Verzeichnis von Verarbeitungstätigkeiten (VVT)?" }, { id: 'q2', text: "Hast du eine Datenschutzerklärung auf deiner Webseite?" }, { id: 'q3', text: "Schließt du Auftragsverarbeitungs-Verträge (AVV) mit Dienstleistern ab?" } ];
+        const priorityColors = { low: 'bg-green-500', medium: 'bg-yellow-500', high: 'bg-red-500' };
+
+        // --- ICON Component ---
+        const Icon = ({ name, className }) => {
+            const icons = {
+                bell: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
+                briefcase: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>,
+                fileText: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
+                checkCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+                image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>,
+                award: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 17 17 23 15.79 13.88"></polyline></svg>,
+                search: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+                plus: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+                gripVertical: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>,
+                paperclip: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
+                calendar: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
+                user: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
+                share2: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>,
+                video: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>,
+                music: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
+                type: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>,
+                clock: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
+                edit2: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>,
+                trash2: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
+                moreVertical: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>,
+                link: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>,
+                xCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>,
+                messageSquare: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>,
+                bookOpen: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>,
+                send: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>,
+                circle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle></svg>,
+                playCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>,
+                helpCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
+                arrowLeft: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
+                shieldCheck: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>,
+                check: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>,
+                x: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+                download: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
+            };
+            return icons[name] || null;
+        };
+
+        // --- PAGE COMPONENTS (placeholders for now) ---
+        const PageWrapper = ({ title, children }) => (
+            <div className="p-4 sm:p-6 lg:p-8 font-sans text-gray-900 dark:text-white">
+                <div className="max-w-7xl mx-auto">
+                    {children}
+                </div>
+            </div>
+        );
+        
+        // --- MainDashboard Component ---
+        const MainDashboard = () => {
+            const data = mockDashboardData;
+            const WelcomeHeader = ({ user }) => (
+                <div className="flex justify-between items-center mb-8">
+                    <div><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Willkommen zurück, {user.name}!</h1><p className="text-gray-500 dark:text-gray-400">Hier ist dein Überblick für heute.</p></div>
+                    <div className="flex items-center gap-4"><button className="relative text-gray-500 hover:text-gray-800 dark:hover:text-white"><Icon name="bell" className="w-6 h-6" /><span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900"></span></button><img src={user.avatarUrl} alt="User Avatar" className="w-10 h-10 rounded-full" /></div>
+                </div>
+            );
+            const KpiWidget = ({ kpi }) => (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700"><div className="flex items-center gap-3 mb-2"><img src={platformLogos[kpi.platform]} alt={kpi.platform} className="h-5 object-contain" /><span className="text-sm font-medium text-gray-600 dark:text-gray-400">{kpi.kpi}</span></div><p className="text-2xl font-bold text-gray-900 dark:text-white">{kpi.value}</p><p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>{kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%</p></div>
+            );
+            const RecentActivityWidget = ({ activities }) => (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full"><h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">Letzte Aktivitäten</h3><div className="space-y-4">{activities.map(act => (<div key={act.id} className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">{act.type === 'task_completed' ? <Icon name="checkCircle" className="w-5 h-5 text-green-500" /> : <Icon name="image" className="w-5 h-5 text-blue-500" />}</div><div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">{act.text}</p><p className="text-xs text-gray-500">{act.project} · {act.time}</p></div></div>))}</div></div>
+            );
+            const LearningProgressWidget = ({ learning }) => (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700"><div className="flex items-center gap-3 mb-3"><Icon name="award" className="w-6 h-6 text-yellow-500" /><h3 className="font-bold text-lg text-gray-900 dark:text-white">Dein Lernfortschritt</h3></div><p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{learning.pathTitle}</p><div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${learning.progress}%` }}></div></div><a href="#" className="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-3 inline-block">Weiterlernen →</a></div>
+            );
+            const QuickAccessWidget = ({ title, icon: IconName, href }) => (
+                <a href={href} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center hover:shadow-lg hover:-translate-y-1 transition-all"><Icon name={IconName} className="w-8 h-8 text-blue-500 mb-3" /><p className="font-semibold text-gray-900 dark:text-white">{title}</p></a>
+            );
+            return (
+                <PageWrapper>
+                    <WelcomeHeader user={data.user} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {data.keyKpis.map(kpi => <KpiWidget key={kpi.platform} kpi={kpi} />)}
+                        <div className="lg:col-span-1 xl:col-span-1 grid grid-cols-2 gap-6"><QuickAccessWidget title="Projekte" icon="briefcase" href="#" /><QuickAccessWidget title="Vorlagen" icon="fileText" href="#" /></div>
+                        <div className="md:col-span-2 lg:col-span-2 xl:col-span-2 row-span-2"><RecentActivityWidget activities={data.recentActivity} /></div>
+                        <div className="md:col-span-1 lg:col-span-1 xl:col-span-1"><LearningProgressWidget learning={data.learningProgress} /></div>
+                        <div className="md:col-span-1 lg:col-span-1 xl:col-span-1 grid grid-cols-1 gap-6">
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700"><h3 className="font-bold text-lg mb-3 text-gray-900 dark:text-white">Support Hub</h3><div className="relative"><Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Wissen durchsuchen..." className="w-full pl-9 pr-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" /></div></div>
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700"><h3 className="font-bold text-lg mb-3 text-gray-900 dark:text-white">ComplyCheck</h3><p className="text-sm text-gray-600 dark:text-gray-400">Letzter DSGVO-Check:</p><p className="font-bold text-lg text-gray-900 dark:text-white">{data.complyStatus.score}</p></div>
+                        </div>
+                    </div>
+                </PageWrapper>
+            );
+        };
+
+        // --- ProjectPage Component ---
+        const ProjectPage = () => {
+            const [projectData, setProjectData] = useState(initialProjectData);
+            const [activeTab, setActiveTab] = useState('tasks');
+            const Moodboard = ({ board }) => (
+                <div className="relative w-full h-[600px] bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+                    {board.items.map(item => <div key={item.id} className="absolute bg-white dark:bg-gray-900 rounded-lg shadow-lg p-2" style={{ left: `${item.x}px`, top: `${item.y}px`, width: `${item.w}px`, height: `${item.h}px` }}>{item.type === 'image' ? <img src={item.content} className="w-full h-full object-cover"/> : <p>{item.content}</p>}</div>)}
+                </div>
+            );
+            const Taskboard = ({ board, setProjectData }) => {
+                const [draggedTask, setDraggedTask] = useState(null);
+                const [sourceSection, setSourceSection] = useState(null);
+                const handleDragStart = (e, task, sectionId) => { setDraggedTask(task); setSourceSection(sectionId); e.dataTransfer.effectAllowed = 'move'; };
+                const handleDragOver = (e) => e.preventDefault();
+                const handleDrop = (e, targetSectionId) => {
+                    e.preventDefault();
+                    if (!draggedTask || sourceSection === targetSectionId) { setDraggedTask(null); setSourceSection(null); return; }
+                    setProjectData(prevData => {
+                        const newBoard = JSON.parse(JSON.stringify(board));
+                        const sourceSec = newBoard.sections.find(s => s.id === sourceSection);
+                        const taskIndex = sourceSec.tasks.findIndex(t => t.id === draggedTask.id);
+                        sourceSec.tasks.splice(taskIndex, 1);
+                        const targetSec = newBoard.sections.find(s => s.id === targetSectionId);
+                        targetSec.tasks.push(draggedTask);
+                        return { ...prevData, taskboards: prevData.taskboards.map(b => b.id === board.id ? newBoard : b) };
+                    });
+                    setDraggedTask(null); setSourceSection(null);
+                };
+                return (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {board.sections.map(section => (
+                            <div key={section.id} className="bg-gray-200 dark:bg-gray-800/50 rounded-lg p-4 flex flex-col min-h-[400px]" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, section.id)}>
+                                <h3 className="font-bold text-lg mb-4">{section.title} <span className="text-sm font-normal text-gray-500">{section.tasks.length}</span></h3>
+                                <div className="flex-grow space-y-4">
+                                    {section.tasks.map(task => (
+                                        <div key={task.id} draggable onDragStart={(e) => handleDragStart(e, task, section.id)} className="bg-white dark:bg-gray-900 rounded-lg p-4 shadow-md border border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing">
+                                            <div className="flex justify-between items-start"><p className="font-semibold">{task.title}</p><div className={`w-3 h-3 rounded-full ${priorityColors[task.priority]}`}></div></div>
+                                            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-3 space-x-4">
+                                                {task.dueDate && <span className="flex items-center"><Icon name="calendar" className="w-3 h-3 mr-1" /> {task.dueDate}</span>}
+                                                {task.assignee && <span className="flex items-center"><Icon name="user" className="w-3 h-3 mr-1" /> {task.assignee}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                );
+            };
+            return (
+                <PageWrapper>
+                    <header className="flex justify-between items-center mb-8"><div><h1 className="text-3xl font-bold">{projectData.name}</h1><p className="text-gray-500 mt-1">Projekt-Workspace</p></div><button className="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg shadow-sm"><Icon name="share2" className="w-4 h-4 mr-2" /> Teilen</button></header>
+                    <div className="mb-6 border-b border-gray-200 dark:border-gray-700"><nav className="-mb-px flex space-x-6"><button onClick={() => setActiveTab('moodboard')} className={`${activeTab === 'moodboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'} py-4 px-1 border-b-2 font-medium text-sm`}>Moodboard</button><button onClick={() => setActiveTab('tasks')} className={`${activeTab === 'tasks' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'} py-4 px-1 border-b-2 font-medium text-sm`}>Aufgaben</button></nav></div>
+                    {activeTab === 'moodboard' && <Moodboard board={projectData.moodboards[0]} />}
+                    {activeTab === 'tasks' && <Taskboard board={projectData.taskboards[0]} setProjectData={setProjectData} />}
+                </PageWrapper>
+            );
+        };
+        
+        // --- AnalyticsPage Component ---
+        const AnalyticsPage = () => {
+            const [dashboard, setDashboard] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            useEffect(() => {
+                const dashboardData = mockDashboards[0];
+                const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: mockIntegrations[widget.integrationId] }));
+                setDashboard({ ...dashboardData, widgets: populatedWidgets });
+            }, []);
+            if (!dashboard) return <div>Lade...</div>;
+            const KpiWidget = ({ widget }) => {
+                const value = Math.floor(Math.random() * 50000) + 1000;
+                const change = (Math.random() * 10 - 5).toFixed(1);
+                return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex flex-col h-full"><div className="flex justify-between items-start mb-2"><div className="flex items-center gap-2"><img src={platformLogos[widget.integration.platform]} className="w-5 h-5 object-contain" /><span className="text-sm font-medium text-gray-600 dark:text-gray-400">{kpiLabels[widget.kpi]}</span></div><button className="text-gray-400"><Icon name="moreVertical" className="w-4 h-4" /></button></div><div className="flex-grow flex flex-col justify-center"><p className="text-4xl font-bold">{value.toLocaleString('de-DE')}</p><div className={`text-sm font-semibold flex items-center ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>{change >= 0 ? '▲' : '▼'} {change}%</div></div><div className="text-xs text-gray-400 mt-2 flex items-center gap-1"><Icon name="clock" className="w-3 h-3" /><span>{widget.timeFrame.replace(/_/g, ' ')}</span></div></div>);
+            };
+            const IntegrationsModal = ({ onClose }) => {
+                const [integrations, setIntegrations] = useState({ available: [], connected: [] });
+                useEffect(() => { setIntegrations({ available: availablePlatforms, connected: Object.values(mockIntegrations) }); }, []);
+                return (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}><div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}><div className="p-6 border-b"><h2 className="text-xl font-bold">Integrationen verwalten</h2></div><div className="p-6"><h3 className="font-semibold mb-3">Verbundene Konten</h3><div className="space-y-3 mb-8">{integrations.connected.map(int => (<div key={int.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"><div className="flex items-center gap-3"><img src={platformLogos[int.platform]} className="w-6 h-6 object-contain" /><div><p className="font-semibold">{int.platform}</p><p className="text-sm text-gray-500">{int.accountName}</p></div></div><div className="flex items-center gap-3">{int.status === 'connected' ? <Icon name="checkCircle" className="w-5 h-5 text-green-500" /> : <Icon name="xCircle" className="w-5 h-5 text-red-500" />}<button><Icon name="trash2" className="w-4 h-4 text-gray-400 hover:text-red-500" /></button></div></div>))}</div><h3 className="font-semibold mb-3">Neue Integration hinzufügen</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{integrations.available.map(p => (<button key={p.id} className="flex items-center gap-3 p-3 border dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><img src={platformLogos[p.name]} className="w-6 h-6 object-contain" /><span className="font-semibold">Mit {p.name} verbinden</span></button>))}</div></div></div></div>);
+            };
+            return (
+                <PageWrapper>
+                    {isModalOpen && <IntegrationsModal onClose={() => setIsModalOpen(false)} />}
+                    <header className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-4">{dashboard.logoUrl && <img src={dashboard.logoUrl} className="h-10 rounded-md" />}<h1 className="text-3xl font-bold">{dashboard.name}</h1></div>
+                        <div className="flex items-center space-x-2"><button onClick={() => setIsModalOpen(true)} className="flex items-center bg-white dark:bg-gray-700 border px-4 py-2 rounded-lg shadow-sm"><Icon name="link" className="w-4 h-4 mr-2" /> Integrationen</button><button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm"><Icon name="plus" className="w-4 h-4 mr-2" /> KPI hinzufügen</button></div>
+                    </header>
+                    <div className="grid grid-cols-12 gap-6">
+                        {dashboard.widgets.map(widget => (<div key={widget.id} className="cursor-grab" style={{ gridColumn: `span ${widget.w}`, gridRow: `span ${widget.h}` }}><KpiWidget widget={widget} /></div>))}
+                        <div className="cursor-pointer border-2 border-dashed rounded-xl flex items-center justify-center" style={{ gridColumn: 'span 4', gridRow: 'span 2' }}><div className="text-center text-gray-500"><Icon name="plus" className="w-8 h-8 mx-auto mb-2" /><p className="font-semibold">KPI hinzufügen</p></div></div>
+                    </div>
+                </PageWrapper>
+            );
+        };
+
+        // --- LibraryPage Component ---
+        const LibraryPage = () => {
+            const [templates, setTemplates] = useState([]);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [activeCategory, setActiveCategory] = useState('Alle');
+            useEffect(() => { setTemplates(mockCmsData.data); }, []);
+            const categories = useMemo(() => ['Alle', ...new Set(templates.map(t => t.category))], [templates]);
+            const filteredTemplates = useMemo(() => templates.filter(template => (activeCategory === 'Alle' || template.category === activeCategory) && (searchTerm === '' || template.title.toLowerCase().includes(searchTerm.toLowerCase()))), [templates, searchTerm, activeCategory]);
+            const DownloadButton = ({ url, format }) => (<a href={url} className="inline-flex items-center bg-gray-200 dark:bg-gray-700 text-xs font-bold px-3 py-1 rounded-full"><Icon name={format === 'pdf' ? 'fileText' : 'file'} className="w-4 h-4 mr-2" />{format.toUpperCase()}</a>);
+            return (
+                <PageWrapper>
+                    <header className="mb-8"><h1 className="text-4xl font-bold">Smart Library</h1><p className="text-lg text-gray-600 dark:text-gray-400 mt-2">Vorlagen, Verträge und Best Practices.</p></header>
+                    <div className="flex gap-4 mb-8"><div className="relative flex-grow"><Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /><input type="text" placeholder="Suchen..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-800" /></div><div className="flex-shrink-0 bg-white dark:bg-gray-800 p-1 rounded-lg border">{categories.map(cat => (<button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-1 text-sm font-medium rounded-md ${activeCategory === cat ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>{cat}</button>))}</div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredTemplates.map(template => (<div key={template.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex flex-col"><h3 className="text-lg font-bold">{template.title}</h3><p className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex-grow">{template.description}</p><div className="border-t mt-4 pt-4 flex justify-between items-center"><span className="text-sm font-semibold text-gray-500">{template.category}</span><div className="flex gap-2">{template.files.docx && <DownloadButton url={template.files.docx} format="docx" />}{template.files.pdf && <DownloadButton url={template.files.pdf} format="pdf" />}</div></div></div>))}</div>
+                </PageWrapper>
+            );
+        };
+        
+        // --- SupportPage Component ---
+        const SupportPage = () => {
+            const [activeTab, setActiveTab] = useState('assistant');
+            const KnowledgeBaseView = () => {
+                const [articles, setArticles] = useState([]);
+                useEffect(() => { setArticles(mockKnowledgeBase.data); }, []);
+                return (<div className="space-y-4">{articles.map(article => (<div key={article.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border"><h3 className="font-bold">{article.title}</h3><p className="text-sm text-gray-500 mt-1">{article.category}</p></div>))}</div>);
+            };
+            const AssistantView = () => {
+                const [chatHistory, setChatHistory] = useState([{ role: 'assistant', text: 'Hallo! Wie kann ich dir helfen?' }]);
+                const [inputValue, setInputValue] = useState('');
+                const [isLoading, setIsLoading] = useState(false);
+                const handleSendMessage = (e) => {
+                    e.preventDefault(); if (!inputValue.trim() || isLoading) return;
+                    const userMessage = { role: 'user', text: inputValue };
+                    setChatHistory(prev => [...prev, userMessage]); setInputValue(''); setIsLoading(true);
+                    setTimeout(() => {
+                        const botMessage = { role: 'assistant', text: `Danke für deine Frage zu "${userMessage.text}".` };
+                        setChatHistory(prev => [...prev, botMessage]); setIsLoading(false);
+                    }, 1500);
+                };
+                return (<div className="flex flex-col h-[500px] bg-white dark:bg-gray-800 border rounded-lg"><div className="flex-grow p-6 overflow-y-auto"><div className="space-y-4">{chatHistory.map((msg, index) => (<div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>{msg.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-blue-600"></div>}<div className={`max-w-md p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}><p className="text-sm">{msg.text}</p></div></div>))}{isLoading && <div className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-blue-600"></div><div className="max-w-md p-3 rounded-lg bg-gray-200 dark:bg-gray-700"><div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div></div></div>}</div></div><form onSubmit={handleSendMessage} className="p-4 border-t flex items-center gap-3"><input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Stelle eine Frage..." className="w-full px-4 py-2 border rounded-full bg-white dark:bg-gray-800" disabled={isLoading} /><button type="submit" className="bg-blue-600 text-white p-3 rounded-full" disabled={isLoading}><Icon name="send" className="w-5 h-5" /></button></form></div>);
+            };
+            return (
+                <PageWrapper>
+                    <header className="text-center mb-8"><h1 className="text-4xl font-bold">Support Hub</h1><p className="text-lg text-gray-600 dark:text-gray-400 mt-2">Finde Antworten oder frage unseren KI-Assistenten.</p></header>
+                    <div className="flex justify-center mb-6"><div className="bg-gray-200 dark:bg-gray-700 p-1 rounded-full flex"><button onClick={() => setActiveTab('kb')} className={`px-4 py-2 text-sm font-medium rounded-full ${activeTab === 'kb' ? 'bg-white dark:bg-gray-900' : ''}`}>Wissensdatenbank</button><button onClick={() => setActiveTab('assistant')} className={`px-4 py-2 text-sm font-medium rounded-full ${activeTab === 'assistant' ? 'bg-white dark:bg-gray-900' : ''}`}>KI-Assistent</button></div></div>
+                    {activeTab === 'kb' ? <KnowledgeBaseView /> : <AssistantView />}
+                </PageWrapper>
+            );
+        };
+        
+        // --- TeamStartPage Component ---
+        const TeamStartPage = () => {
+            const [paths, setPaths] = useState([]);
+            const [selectedPath, setSelectedPath] = useState(null);
+            useEffect(() => { setPaths(mockLearningPaths); }, []);
+            const LearningPathDetail = ({ path, onBack }) => {
+                const [completedModules, setCompletedModules] = useState(['m1-1']);
+                const [activeModule, setActiveModule] = useState(path.modules[0]);
+                const handleCompleteModule = (moduleId) => { if (!completedModules.includes(moduleId)) { setCompletedModules(prev => [...prev, moduleId]); const currentIndex = path.modules.findIndex(m => m.id === moduleId); if (currentIndex + 1 < path.modules.length) { setActiveModule(path.modules[currentIndex + 1]); } } };
+                const progress = (completedModules.length / path.modules.length) * 100;
+                const moduleIcons = { video: "playCircle", text: "fileText", quiz: "helpCircle" };
+                const QuizModule = ({ module, onComplete }) => {
+                    const [selectedAnswer, setSelectedAnswer] = useState(null);
+                    return (<div className="p-6"><h3 className="font-bold text-lg mb-4">{module.content.question}</h3><div className="space-y-3 mb-4">{module.content.options.map((option, index) => (<button key={index} onClick={() => setSelectedAnswer(index)} className={`w-full text-left p-3 border rounded-lg ${selectedAnswer === index ? 'bg-blue-200' : 'bg-white dark:bg-gray-800'}`}>{option}</button>))}</div><button onClick={() => { if(selectedAnswer === module.content.correctAnswerIndex) onComplete(module.id) }} className="w-full p-2 bg-blue-600 text-white rounded-lg">Antwort prüfen</button></div>);
+                };
+                return (<div><button onClick={onBack} className="flex items-center gap-2 text-sm mb-4"><Icon name="arrowLeft" className="w-4 h-4" /> Zurück</button><h2 className="text-2xl font-bold">{path.title}</h2><div className="my-6"><div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div></div></div><div className="flex gap-8"><div className="w-1/3"><h3 className="font-bold mb-3">Module</h3><div className="space-y-2">{path.modules.map(module => (<button key={module.id} onClick={() => setActiveModule(module)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 ${activeModule.id === module.id ? 'bg-blue-100 dark:bg-blue-900/50' : ''}`}>{completedModules.includes(module.id) ? <Icon name="checkCircle" className="w-5 h-5 text-green-500" /> : <Icon name="circle" className="w-5 h-5" />}<Icon name={moduleIcons[module.type]} className="w-5 h-5" /><span>{module.title}</span></button>))}</div></div><div className="w-2/3 bg-white dark:bg-gray-800 rounded-lg">{activeModule.type === 'quiz' ? <QuizModule module={activeModule} onComplete={handleCompleteModule} /> : <div className="p-6">{activeModule.content || `Inhalt für ${activeModule.title}`}<button onClick={() => handleCompleteModule(activeModule.id)} className="mt-4 p-2 bg-blue-600 text-white rounded">Als erledigt markieren</button></div>}</div></div></div>);
+            };
+            if (selectedPath) return <PageWrapper><LearningPathDetail path={selectedPath} onBack={() => setSelectedPath(null)} /></PageWrapper>;
+            return (<PageWrapper><header className="text-center mb-8"><h1 className="text-4xl font-bold">TeamStart</h1><p className="text-lg text-gray-600 dark:text-gray-400 mt-2">Wähle deinen Lernpfad.</p></header><div className="space-y-4">{paths.map(path => (<button key={path.id} onClick={() => setSelectedPath(path)} className="w-full text-left p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md"><span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full mb-2 inline-block">{path.targetRole}</span><h3 className="text-xl font-bold">{path.title}</h3><p className="text-gray-600 dark:text-gray-400 mt-1">{path.description}</p></button>))}</div></PageWrapper>);
+        };
+        
+        // --- ComplyCheckPage Component ---
+        const ComplyCheckPage = () => {
+            const [activeTool, setActiveTool] = useState(null);
+            const DsgvoSelfTest = () => {
+                const [answers, setAnswers] = useState({});
+                const [isFinished, setIsFinished] = useState(false);
+                const handleAnswer = (qId, answer) => setAnswers(prev => ({ ...prev, [qId]: answer }));
+                const score = Object.values(answers).filter(Boolean).length;
+                return (<div className="p-6 bg-white dark:bg-gray-800 rounded-lg"><h3 className="text-xl font-bold mb-4">DSGVO-Selbsttest</h3>{!isFinished ? (<div><div className="space-y-6">{dsgvoQuestions.map(q => (<div key={q.id}><p className="font-semibold mb-2">{q.text}</p><div className="flex gap-4"><button onClick={() => handleAnswer(q.id, true)} className={`flex items-center gap-2 p-2 rounded-lg border-2 ${answers[q.id] === true ? 'border-green-500' : ''}`}><Icon name="check" className="w-5 h-5 text-green-500" /> Ja</button><button onClick={() => handleAnswer(q.id, false)} className={`flex items-center gap-2 p-2 rounded-lg border-2 ${answers[q.id] === false ? 'border-red-500' : ''}`}><Icon name="x" className="w-5 h-5 text-red-500" /> Nein</button></div></div>))}</div><button onClick={() => setIsFinished(true)} disabled={Object.keys(answers).length !== dsgvoQuestions.length} className="mt-8 w-full p-3 bg-blue-600 text-white rounded-lg disabled:bg-gray-400">Auswertung</button></div>) : (<div className="text-center"><h4 className="text-lg font-bold">Ergebnis</h4><p className="text-5xl font-bold my-4">{score} / {dsgvoQuestions.length}</p><button onClick={() => { setIsFinished(false); setAnswers({}); }} className="mt-6 text-blue-600">Wiederholen</button></div>)}</div>);
+            };
+            const AvvGenerator = () => {
+                const [generated, setGenerated] = useState(false);
+                return (<div className="p-6 bg-white dark:bg-gray-800 rounded-lg"><h3 className="text-xl font-bold mb-4">AV-Vertrag-Generator</h3>{!generated ? (<form onSubmit={(e) => { e.preventDefault(); setGenerated(true); }} className="space-y-4"><div><label className="block text-sm">Name des Dienstleisters</label><input type="text" required className="input-style" /></div><div><label className="block text-sm">Zweck der Verarbeitung</label><input type="text" required className="input-style" /></div><button type="submit" className="w-full p-3 bg-blue-600 text-white rounded-lg">Generieren</button></form>) : (<div><h4 className="font-bold mb-2">Generierte Vorlage</h4><pre className="p-4 bg-gray-100 dark:bg-gray-900/50 rounded-md text-xs">... Vertragstext ...</pre><button onClick={() => setGenerated(false)} className="mt-4 w-full p-2 border rounded-lg">Neue Vorlage</button></div>)}</div>);
+            };
+            if (activeTool) return <PageWrapper><button onClick={() => setActiveTool(null)} className="mb-4 flex items-center gap-1"><Icon name="arrowLeft" className="w-4 h-4" /> Zurück</button>{activeTool === 'dsgvo' ? <DsgvoSelfTest /> : <AvvGenerator />}</PageWrapper>;
+            return (<PageWrapper><header className="text-center mb-8"><h1 className="text-4xl font-bold">ComplyCheck</h1><p className="text-lg text-gray-600 dark:text-gray-400 mt-2">Tools für deine DSGVO-Compliance.</p></header><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><button onClick={() => setActiveTool('dsgvo')} className="p-8 text-left bg-white dark:bg-gray-800 rounded-lg shadow-md"><Icon name="shieldCheck" className="w-10 h-10 text-blue-500 mb-4" /><h2 className="text-xl font-bold">DSGVO-Selbsttest</h2></button><button onClick={() => setActiveTool('avv')} className="p-8 text-left bg-white dark:bg-gray-800 rounded-lg shadow-md"><Icon name="fileText" className="w-10 h-10 text-green-500 mb-4" /><h2 className="text-xl font-bold">AV-Vertrag-Generator</h2></button></div></PageWrapper>);
+        };
+        
+        // --- Main App Component ---
+        function App() {
+            const [activePage, setActivePage] = useState('dashboard');
+
+            const pages = {
+                dashboard: <MainDashboard />,
+                projects: <ProjectPage />,
+                analytics: <AnalyticsPage />,
+                library: <LibraryPage />,
+                support: <SupportPage />,
+                teamstart: <TeamStartPage />,
+                complycheck: <ComplyCheckPage />,
+            };
+
+            const navItems = [
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'projects', label: 'Projekte' },
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'library', label: 'SmartLibrary' },
+                { id: 'support', label: 'SupportHub' },
+                { id: 'teamstart', label: 'TeamStart' },
+                { id: 'complycheck', label: 'ComplyCheck' },
+            ];
+
+            return (
+                <div>
+                    <nav className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
+                        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16">
+                                <div className="flex items-center">
+                                    <span className="font-bold text-xl text-gray-900 dark:text-white">Plattform</span>
+                                </div>
+                                <div className="hidden md:block">
+                                    <div className="ml-10 flex items-baseline space-x-4">
+                                        {navItems.map(item => (
+                                            <button 
+                                                key={item.id} 
+                                                onClick={() => setActivePage(item.id)}
+                                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${activePage === item.id ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                            >
+                                                {item.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                    <main>
+                        {pages[activePage]}
+                    </main>
+                </div>
+            );
+        }
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
