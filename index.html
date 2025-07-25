@@ -56,24 +56,8 @@
         };
     </script>
     
-    <style>
-        body { 
-            -webkit-font-smoothing: antialiased; 
-            -moz-osx-font-smoothing: grayscale;
-            background: #0f172a; /* Fallback background */
-        }
-        .text-shadow {
-            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        .glass-pane {
-            background-color: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-    </style>
 </head>
-<body class="text-white">
+<body class="text-white bg-slate-900 antialiased">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -245,7 +229,7 @@
                         <div className="relative">
                             <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-24 sm:py-32">
                                 <div className="relative px-4 py-16 sm:px-6 sm:py-24 lg:py-32 lg:px-8 text-center">
-                                    <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-shadow">
+                                    <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-shadow">
                                         <span className="block text-white">Dein Betriebssystem</span>
                                         <span className="block text-indigo-200">für das Musikbusiness</span>
                                     </h1>
@@ -333,12 +317,12 @@
             const KpiWidget = ({ kpi }) => (
                 <div className="glass-pane p-4 rounded-2xl"><div className="flex items-center gap-3 mb-2"><img src={platformLogos[kpi.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} alt={kpi.platform} className="h-5 object-contain rounded-md" /><span className="text-sm font-medium text-gray-300 text-shadow">{kpi.kpi}</span></div><p className="text-2xl font-bold text-shadow">{kpi.value}</p><p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>{kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%</p></div>
             );
-            const RecentActivityWidget = ({ activities }) => (
+            const RecentActivityWidget = React.memo(({ activities }) => (
                 <div className="glass-pane p-6 rounded-2xl h-full"><h3 className="font-bold text-lg mb-4 text-shadow">Letzte Aktivitäten</h3><div className="space-y-4">{activities.map(act => (<div key={act.id} className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">{act.type === 'task_completed' ? <Icon name="checkCircle" className="w-5 h-5 text-green-400" /> : <Icon name="image" className="w-5 h-5 text-blue-400" />}</div><div><p className="text-sm font-medium text-gray-200 text-shadow">{act.text}</p><p className="text-xs text-gray-400">{act.project} · {act.time}</p></div></div>))}</div></div>
-            );
-            const LearningProgressWidget = ({ learning }) => (
+            ));
+            const LearningProgressWidget = React.memo(({ learning }) => (
                 <div className="glass-pane p-6 rounded-2xl"><div className="flex items-center gap-3 mb-3"><Icon name="award" className="w-6 h-6 text-yellow-400" /><h3 className="font-bold text-lg text-shadow">Dein Lernfortschritt</h3></div><p className="text-sm text-gray-300 text-shadow mb-2">{learning.pathTitle}</p><div className="w-full bg-white/20 rounded-full h-2.5"><div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${learning.progress}%` }}></div></div><a href="#" onClick={() => setActivePage('learningcenter')} className="text-sm font-semibold text-blue-400 mt-3 inline-block">Weiterlernen →</a></div>
-            );
+            ));
             const QuickAccessWidget = ({ title, icon: IconName, pageId }) => (
                 <a href="#" onClick={() => setActivePage(pageId)} className="glass-pane p-6 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 transition-all"><Icon name={IconName} className="w-8 h-8 text-blue-300 mb-3" /><p className="font-semibold text-shadow">{title}</p></a>
             );
@@ -437,7 +421,7 @@
                             <button onClick={() => setShareModalOpen(true)} className="glass-pane flex items-center px-4 py-2 rounded-lg shadow-sm"><Icon name="share2" className="w-4 h-4 mr-2" /> Teilen</button>
                         </div>
                     </header>
-                    <div className="mb-6 border-b border-white/20"><nav className="-mb-px flex space-x-6"><button onClick={() => setActiveTab('moodboard')} className={`${activeTab === 'moodboard' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm`}>Moodboard</button><button onClick={() => setActiveTab('tasks')} className={`${activeTab === 'tasks' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm`}>Aufgaben</button><button onClick={() => setActiveTab('files')} className={`${activeTab === 'files' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm`}>Dateien</button></nav></div>
+                    <div className="mb-6 border-b border-white/20"><nav className="-mb-px flex flex-wrap justify-center sm:justify-start space-x-6"><button onClick={() => setActiveTab('moodboard')} className={`${activeTab === 'moodboard' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm mb-2 sm:mb-0`}>Moodboard</button><button onClick={() => setActiveTab('tasks')} className={`${activeTab === 'tasks' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm mb-2 sm:mb-0`}>Aufgaben</button><button onClick={() => setActiveTab('files')} className={`${activeTab === 'files' ? 'border-blue-400 text-white' : 'border-transparent text-gray-300 hover:text-white'} py-4 px-1 border-b-2 font-medium text-sm mb-2 sm:mb-0`}>Dateien</button></nav></div>
                     {activeTab === 'moodboard' && project.moodboards && project.moodboards.length > 0 && <Moodboard board={project.moodboards[0]} />}
                     {activeTab === 'tasks' && project.taskboards && project.taskboards.length > 0 && <Taskboard board={project.taskboards[0]} onTaskboardUpdate={(updatedTaskboard) => handleProjectUpdate({...project, taskboards: [updatedTaskboard]})} isEditable={accessMode === 'edit'} />}
                     {activeTab === 'files' && <FilesPage project={project} onProjectUpdate={handleProjectUpdate} isEditable={accessMode === 'edit'} />}
