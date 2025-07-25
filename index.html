@@ -219,12 +219,27 @@
                 {
                     icon: "users",
                     title: "Kollaborative Projekte",
-                    description: "Plane Kampagnen, erstelle Moodboards und verwalte Aufgaben – alles gemeinsam mit deinem Team."
+                    description: "Plane Kampagnen mit Moodboards, Aufgaben und geteilten Dateien. Lade Dritte zur Ansicht oder Bearbeitung ein."
                 },
                 {
                     icon: "zap",
                     title: "KI-gestützter Assistent",
                     description: "Erhalte sofortige Antworten und Strategien zu Musikmarketing, Veröffentlichungen und mehr von deinem persönlichen Experten."
+                },
+                {
+                    icon: "bookOpen",
+                    title: "Smart Library",
+                    description: "Greife auf eine kuratierte Sammlung von Vorlagen, Verträgen und Best Practices für das Musikbusiness zu."
+                },
+                {
+                    icon: "award",
+                    title: "Learning Center",
+                    description: "Erweitere dein Wissen mit geführten Lernpfaden, die speziell für Künstler und ihre Teams entwickelt wurden."
+                },
+                {
+                    icon: "uploadCloud",
+                    title: "Dateien & Freigaben",
+                    description: "Verwalte all deine Projektdateien zentral und teile sie sicher mit externen Partnern über Links."
                 }
             ];
 
@@ -270,7 +285,7 @@
                                         Konzentriere dich auf deine Musik, wir kümmern uns um den Rest.
                                     </p>
                                 </div>
-                                <div className="mt-12 grid gap-8 md:grid-cols-3">
+                                <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                                     {features.map((feature) => (
                                         <div key={feature.title} className="glass-pane p-6 rounded-2xl shadow-lg">
                                             <div className="flex-shrink-0">
