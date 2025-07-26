@@ -228,38 +228,18 @@
         
         // --- LandingPage Component ---
         const LandingPage = ({ setActiveAuthPage, darkMode, toggleDarkMode }) => {
-            const features = [
-                {
-                    icon: "barChart",
-                    title: "Zentrales Analytics-Dashboard",
-                    description: "Verbinde all deine Plattformen und behalte den Überblick über deine wichtigsten Kennzahlen an einem Ort."
-                },
-                {
-                    icon: "users",
-                    title: "Kollaborative Projekte",
-                    description: "Plane Kampagnen mit Moodboards, Aufgaben und geteilten Dateien. Lade Dritte zur Ansicht oder Bearbeitung ein."
-                },
-                {
-                    icon: "zap",
-                    title: "KI-gestützter Assistent",
-                    description: "Erhalte sofortige Antworten und Strategien zu Musikmarketing, Veröffentlichungen und mehr von deinem persönlichen Experten."
-                },
-                {
-                    icon: "bookOpen",
-                    title: "Smart Library",
-                    description: "Greife auf eine kuratierte Sammlung von Vorlagen, Verträgen und Best Practices für das Musikbusiness zu."
-                },
-                {
-                    icon: "award",
-                    title: "Learning Center",
-                    description: "Erweitere dein Wissen mit geführten Lernpfaden, die speziell für Künstler und ihre Teams entwickelt wurden."
-                },
-                {
-                    icon: "uploadCloud",
-                    title: "Dateien & Freigaben",
-                    description: "Verwalte all deine Projektdateien zentral und teile sie sicher mit externen Partnern über Links."
-                }
-            ];
+            const [content, setContent] = useState({ hero: { title: '', subtitle: '' }, features: [] });
+
+            useEffect(() => {
+                const fetchContent = async () => {
+                    const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
+                    const docSnap = await window.firebase.getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setContent(docSnap.data());
+                    }
+                };
+                fetchContent();
+            }, []);
 
             return (
                 <div className="text-gray-100">
@@ -279,11 +259,11 @@
                             <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-24 sm:py-32">
                                 <div className="relative px-4 py-16 sm:px-6 sm:py-24 lg:py-32 lg:px-8 text-center">
                                     <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-shadow">
-                                        <span className="block text-white">Dein Betriebssystem</span>
-                                        <span className="block text-indigo-200">für das Musikbusiness</span>
+                                        <span className="block text-white">{content.hero.title.split('\n')[0]}</span>
+                                        <span className="block text-indigo-200">{content.hero.title.split('\n')[1]}</span>
                                     </h1>
                                     <p className="mt-6 max-w-lg mx-auto text-xl text-indigo-100 sm:max-w-3xl text-shadow">
-                                        Von Analytics über Projektmanagement bis hin zu KI-gestützter Beratung – alles, was du für deinen Erfolg brauchst.
+                                        {content.hero.subtitle}
                                     </p>
                                     <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
                                         <button onClick={() => setActiveAuthPage('register')} className="bg-white/90 text-blue-900 font-bold text-lg px-8 py-3 rounded-lg shadow-lg hover:bg-white transition">
@@ -304,7 +284,7 @@
                                     </p>
                                 </div>
                                 <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                                    {features.map((feature) => (
+                                    {content.features.map((feature) => (
                                         <div key={feature.title} className="glass-pane p-6 rounded-2xl shadow-lg">
                                             <div className="flex-shrink-0">
                                                 <Icon name={feature.icon} className="h-8 w-8 text-indigo-300" />

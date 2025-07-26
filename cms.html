@@ -172,11 +172,102 @@
             );
         };
 
+        const LandingPageManager = () => {
+            const [hero, setHero] = useState({ title: '', subtitle: '' });
+            const [features, setFeatures] = useState([]);
+
+            const fetchLandingPageContent = async () => {
+                const heroDoc = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "landingPage")).then(snapshot => snapshot.docs[0]);
+                if (heroDoc) {
+                    setHero(heroDoc.data().hero);
+                    setFeatures(heroDoc.data().features);
+                }
+            };
+
+            useEffect(() => {
+                fetchLandingPageContent();
+            }, []);
+
+            const handleHeroChange = (e) => {
+                setHero({ ...hero, [e.target.name]: e.target.value });
+            };
+
+            const handleFeatureChange = (index, e) => {
+                const newFeatures = [...features];
+                newFeatures[index] = { ...newFeatures[index], [e.target.name]: e.target.value };
+                setFeatures(newFeatures);
+            };
+
+            const handleSave = async () => {
+                const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
+                await window.firebase.updateDoc(docRef, { hero, features });
+                alert('Landing page content updated!');
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Landing Page Content</h2>
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="text-xl font-bold mb-2">Hero Section</h3>
+                            <input type="text" name="title" value={hero.title} onChange={handleHeroChange} placeholder="Main Title" className="w-full p-2 rounded bg-gray-800 text-white" />
+                            <textarea name="subtitle" value={hero.subtitle} onChange={handleHeroChange} placeholder="Subtitle" className="w-full p-2 mt-2 rounded bg-gray-800 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold mb-2">Features</h3>
+                            {features.map((feature, index) => (
+                                <div key={index} className="bg-gray-800 p-4 rounded mb-2">
+                                    <input type="text" name="title" value={feature.title} onChange={(e) => handleFeatureChange(index, e)} placeholder="Feature Title" className="w-full p-2 rounded bg-gray-700 text-white" />
+                                    <textarea name="description" value={feature.description} onChange={(e) => handleFeatureChange(index, e)} placeholder="Feature Description" className="w-full p-2 mt-2 rounded bg-gray-700 text-white" />
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={handleSave} className="bg-blue-500 px-4 py-2 rounded">Save Landing Page</button>
+                    </div>
+                </div>
+            );
+        };
+
         const Cms = () => {
+            const [activeTab, setActiveTab] = useState('news');
+
+            const populateInitialData = async () => {
+                const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
+                const docSnap = await window.firebase.getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    const initialData = {
+                        hero: {
+                            title: "Dein Betriebssystem\nfür das Musikbusiness",
+                            subtitle: "Von Analytics über Projektmanagement bis hin zu KI-gestützter Beratung – alles, was du für deinen Erfolg brauchst."
+                        },
+                        features: [
+                            { icon: "barChart", title: "Zentrales Analytics-Dashboard", description: "Verbinde all deine Plattformen und behalte den Überblick über deine wichtigsten Kennzahlen an einem Ort." },
+                            { icon: "users", title: "Kollaborative Projekte", description: "Plane Kampagnen mit Moodboards, Aufgaben und geteilten Dateien. Lade Dritte zur Ansicht oder Bearbeitung ein." },
+                            { icon: "zap", title: "KI-gestützter Assistent", description: "Erhalte sofortige Antworten und Strategien zu Musikmarketing, Veröffentlichungen und mehr von deinem persönlichen Experten." },
+                            { icon: "bookOpen", title: "Smart Library", description: "Greife auf eine kuratierte Sammlung von Vorlagen, Verträgen und Best Practices für das Musikbusiness zu." },
+                            { icon: "award", title: "Learning Center", description: "Erweitere dein Wissen mit geführten Lernpfaden, die speziell für Künstler und ihre Teams entwickelt wurden." },
+                            { icon: "uploadCloud", title: "Dateien & Freigaben", description: "Verwalte all deine Projektdateien zentral und teile sie sicher mit externen Partnern über Links." }
+                        ]
+                    };
+                    await window.firebase.setDoc(docRef, initialData);
+                    console.log("Initial landing page data populated.");
+                }
+            };
+
+            useEffect(() => {
+                populateInitialData();
+            }, []);
+
             return (
                 <div className="p-8">
                     <h1 className="text-3xl font-bold mb-8">Content Management System</h1>
-                    <NewsManager />
+                    <div className="flex border-b border-gray-700 mb-8">
+                        <button onClick={() => setActiveTab('news')} className={`py-2 px-4 ${activeTab === 'news' ? 'border-b-2 border-blue-500' : ''}`}>News</button>
+                        <button onClick={() => setActiveTab('landing')} className={`py-2 px-4 ${activeTab === 'landing' ? 'border-b-2 border-blue-500' : ''}`}>Landing Page</button>
+                    </div>
+                    {activeTab === 'news' && <NewsManager />}
+                    {activeTab === 'landing' && <LandingPageManager />}
                 </div>
             );
         };
