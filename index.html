@@ -199,6 +199,19 @@
             return icons[name] || null;
         };
 
+        // --- Dark Mode Toggle Component ---
+        const DarkModeToggle = ({ darkMode, toggleDarkMode }) => {
+            return (
+                <button onClick={toggleDarkMode} className="flex items-center justify-center w-10 h-10 rounded-full glass-pane text-gray-300 hover:text-white transition">
+                    {darkMode ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    )}
+                </button>
+            );
+        };
+
         // --- PAGE COMPONENTS ---
         const PageWrapper = ({ children }) => (
             <div className="p-4 sm:p-6 lg:p-8 font-sans">
@@ -209,7 +222,7 @@
         );
         
         // --- LandingPage Component ---
-        const LandingPage = ({ setActiveAuthPage }) => {
+        const LandingPage = ({ setActiveAuthPage, darkMode, toggleDarkMode }) => {
             const features = [
                 {
                     icon: "barChart",
@@ -303,6 +316,9 @@
                     {/* Footer */}
                     <footer className="">
                         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
+                            <div className="flex justify-center space-x-6 md:order-2">
+                                <DarkModeToggle darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+                            </div>
                             <div className="mt-8 md:mt-0 md:order-1">
                                 <p className="text-center text-base text-gray-400">&copy; 2025 Plattform. Alle Rechte vorbehalten.</p>
                             </div>
@@ -1145,6 +1161,12 @@
             const [selectedProjectId, setSelectedProjectId] = useState(null);
             const [activities, setActivities] = useState([]);
             const [complyCheckScore, setComplyCheckScore] = useState("N/A");
+            const [darkMode, setDarkMode] = useState(true);
+
+            const toggleDarkMode = () => {
+                setDarkMode(prev => !prev);
+                document.documentElement.classList.toggle('dark');
+            };
             
             // Public project view state
             const [publicProject, setPublicProject] = useState(null);
@@ -1206,7 +1228,7 @@
                         case 'login': return <LoginPage setActiveAuthPage={setActiveAuthPage} />;
                         case 'register': return <RegisterPage setActiveAuthPage={setActiveAuthPage} />;
                         case 'forgot': return <ForgotPasswordPage setActiveAuthPage={setActiveAuthPage} />;
-                        default: return <LandingPage setActiveAuthPage={setActiveAuthPage} />;
+                        default: return <LandingPage setActiveAuthPage={setActiveAuthPage} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
                     }
                 }
                 
@@ -1237,7 +1259,7 @@
                 ];
 
                 return (
-                    <div className="min-h-screen">
+                    <div className="min-h-screen flex flex-col">
                         <nav className="glass-pane sticky top-0 z-20">
                             <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
                                 <div className="flex items-center justify-between h-16">
@@ -1270,9 +1292,15 @@
                                 </div>
                             )}
                         </nav>
-                        <main>
+                        <main className="flex-grow">
                             {pages[activePage]}
                         </main>
+                        <footer className="glass-pane">
+                            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                                 <p className="text-sm text-gray-400">&copy; 2025 Plattform. Alle Rechte vorbehalten.</p>
+                                 <DarkModeToggle darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+                            </div>
+                        </footer>
                     </div>
                 );
             }
