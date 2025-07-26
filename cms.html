@@ -418,6 +418,124 @@
             );
         };
 
+        const LearningCenterManager = () => {
+            const [paths, setPaths] = useState([]);
+            const [title, setTitle] = useState('');
+            const [description, setDescription] = useState('');
+            const [targetRole, setTargetRole] = useState('');
+            const [modules, setModules] = useState([]);
+            const [editingId, setEditingId] = useState(null);
+
+            const fetchPaths = async () => {
+                const pathsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "learningCenter"));
+                setPaths(pathsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            };
+
+            useEffect(() => {
+                fetchPaths();
+            }, []);
+
+            const handleModuleChange = (index, e) => {
+                const newModules = [...modules];
+                newModules[index] = { ...newModules[index], [e.target.name]: e.target.value };
+                setModules(newModules);
+            };
+
+            const addModule = () => {
+                setModules([...modules, { title: '', type: 'text', content: '' }]);
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const pathData = { title, description, targetRole, modules, createdAt: new Date() };
+
+                if (editingId) {
+                    const docRef = window.firebase.doc(window.firebase.db, "learningCenter", editingId);
+                    await window.firebase.updateDoc(docRef, pathData);
+                } else {
+                    await window.firebase.addDoc(window.firebase.collection(window.firebase.db, "learningCenter"), pathData);
+                }
+
+                resetForm();
+                fetchPaths();
+            };
+
+            const handleEdit = (path) => {
+                setEditingId(path.id);
+                setTitle(path.title);
+                setDescription(path.description);
+                setTargetRole(path.targetRole);
+                setModules(path.modules);
+            };
+
+            const handleDelete = async (id) => {
+                const docRef = window.firebase.doc(window.firebase.db, "learningCenter", id);
+                await window.firebase.deleteDoc(docRef);
+                fetchPaths();
+            };
+
+            const resetForm = () => {
+                setEditingId(null);
+                setTitle('');
+                setDescription('');
+                setTargetRole('');
+                setModules([]);
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Learning Center Manager</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="md:col-span-1">
+                            <h3 className="text-xl font-bold mb-4">{editingId ? 'Edit Path' : 'Add Path'}</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="text" placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <input type="text" placeholder="Target Role" value={targetRole} onChange={e => setTargetRole(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <div>
+                                    <h4 className="font-bold mb-2">Modules</h4>
+                                    {modules.map((module, index) => (
+                                        <div key={index} className="bg-gray-700 p-2 rounded mb-2">
+                                            <input type="text" name="title" value={module.title} onChange={e => handleModuleChange(index, e)} placeholder="Module Title" className="w-full p-1 rounded bg-gray-600 text-white" />
+                                            <select name="type" value={module.type} onChange={e => handleModuleChange(index, e)} className="w-full p-1 mt-1 rounded bg-gray-600 text-white">
+                                                <option value="text">Text</option>
+                                                <option value="video">Video</option>
+                                                <option value="quiz">Quiz</option>
+                                            </select>
+                                            <textarea name="content" value={module.content} onChange={e => handleModuleChange(index, e)} placeholder="Module Content" className="w-full p-1 mt-1 rounded bg-gray-600 text-white" />
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={addModule} className="text-sm bg-gray-500 px-2 py-1 rounded mt-2">Add Module</button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button type="submit" className="bg-blue-500 px-4 py-2 rounded">{editingId ? 'Update' : 'Add'}</button>
+                                    {editingId && <button type="button" onClick={resetForm} className="bg-gray-500 px-4 py-2 rounded">Cancel</button>}
+                                </div>
+                            </form>
+                        </div>
+                        <div className="md:col-span-2">
+                            <h3 className="text-xl font-bold mb-4">Existing Paths</h3>
+                            <div className="space-y-4">
+                                {paths.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(path => (
+                                    <div key={path.id} className="bg-gray-800 p-4 rounded flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-bold">{path.title}</h4>
+                                            <p className="text-sm text-gray-400">{path.description}</p>
+                                            <span className="text-xs bg-gray-700 px-2 py-1 rounded-full mt-2 inline-block">{path.targetRole}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEdit(path)} className="text-sm bg-yellow-500 px-2 py-1 rounded">Edit</button>
+                                            <button onClick={() => handleDelete(path.id)} className="text-sm bg-red-500 px-2 py-1 rounded">Delete</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const Cms = () => {
             const [activeTab, setActiveTab] = useState('news');
 
@@ -457,11 +575,13 @@
                         <button onClick={() => setActiveTab('landing')} className={`py-2 px-4 ${activeTab === 'landing' ? 'border-b-2 border-blue-500' : ''}`}>Landing Page</button>
                         <button onClick={() => setActiveTab('library')} className={`py-2 px-4 ${activeTab === 'library' ? 'border-b-2 border-blue-500' : ''}`}>Smart Library</button>
                         <button onClick={() => setActiveTab('knowledgeBase')} className={`py-2 px-4 ${activeTab === 'knowledgeBase' ? 'border-b-2 border-blue-500' : ''}`}>Knowledge Base</button>
+                        <button onClick={() => setActiveTab('learningCenter')} className={`py-2 px-4 ${activeTab === 'learningCenter' ? 'border-b-2 border-blue-500' : ''}`}>Learning Center</button>
                     </div>
                     {activeTab === 'news' && <NewsManager />}
                     {activeTab === 'landing' && <LandingPageManager />}
                     {activeTab === 'library' && <SmartLibraryManager />}
                     {activeTab === 'knowledgeBase' && <KnowledgeBaseManager />}
+                    {activeTab === 'learningCenter' && <LearningCenterManager />}
                 </div>
             );
         };

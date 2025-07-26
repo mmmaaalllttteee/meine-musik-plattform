@@ -960,7 +960,13 @@
         const LearningCenter = () => {
             const [paths, setPaths] = useState([]);
             const [selectedPath, setSelectedPath] = useState(null);
-            useEffect(() => { setPaths(mockLearningPaths); }, []);
+            useEffect(() => {
+                const fetchPaths = async () => {
+                    const pathsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "learningCenter"));
+                    setPaths(pathsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                };
+                fetchPaths();
+            }, []);
             const LearningPathDetail = ({ path, onBack }) => {
                 const [completedModules, setCompletedModules] = useState(['m1-1']);
                 const [activeModule, setActiveModule] = useState(path.modules[0]);
