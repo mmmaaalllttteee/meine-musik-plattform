@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMS - Meine Musik Plattform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // Deine Firebase-Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDUGeLsuJgFfdK-JR7Uqh3GhSC6L9UW7JE",
+            authDomain: "meine-musikplattform.firebaseapp.com",
+            projectId: "meine-musikplattform",
+            storageBucket: "meine-musikplattform.appspot.com",
+            messagingSenderId: "997469107237",
+            appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
+            measurementId: "G-7M62EV7KQH"
+        };
+
+        // Firebase App initialisieren und global verfügbar machen
+        let app;
+        try {
+            app = initializeApp(firebaseConfig);
+            const appCheck = initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider('YOUR_RECAPTCHA_V3_SITE_KEY'),
+                isTokenAutoRefreshEnabled: true
+            });
+        } catch (e) {
+            console.error("Firebase initialization error:", e);
+        }
+
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        window.firebase = {
+            db,
+            storage,
+            collection,
+            getDocs,
+            addDoc,
+            updateDoc,
+            doc,
+            deleteDoc,
+            ref,
+            uploadBytes,
+            getDownloadURL
+        };
+    </script>
+
+    <style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #0f172a;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const NewsManager = () => {
+            const [news, setNews] = useState([]);
+            const [title, setTitle] = useState('');
+            const [text, setText] = useState('');
+            const [ctaText, setCtaText] = useState('');
+            const [ctaLink, setCtaLink] = useState('');
+            const [image, setImage] = useState(null);
+            const [editingId, setEditingId] = useState(null);
+
+            const fetchNews = async () => {
+                const newsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "news"));
+                setNews(newsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            };
+
+            useEffect(() => {
+                fetchNews();
+            }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                let imageUrl = '';
+                if (image) {
+                    const storageRef = window.firebase.ref(window.firebase.storage, `news-images/${image.name}`);
+                    await window.firebase.uploadBytes(storageRef, image);
+                    imageUrl = await window.firebase.getDownloadURL(storageRef);
+                }
+
+                const newsData = { title, text, ctaText, ctaLink, imageUrl, createdAt: new Date() };
+
+                if (editingId) {
+                    const docRef = window.firebase.doc(window.firebase.db, "news", editingId);
+                    await window.firebase.updateDoc(docRef, newsData);
+                } else {
+                    await window.firebase.addDoc(window.firebase.collection(window.firebase.db, "news"), newsData);
+                }
+
+                resetForm();
+                fetchNews();
+            };
+
+            const handleEdit = (article) => {
+                setEditingId(article.id);
+                setTitle(article.title);
+                setText(article.text);
+                setCtaText(article.ctaText);
+                setCtaLink(article.ctaLink);
+            };
+
+            const handleDelete = async (id) => {
+                const docRef = window.firebase.doc(window.firebase.db, "news", id);
+                await window.firebase.deleteDoc(docRef);
+                fetchNews();
+            };
+
+            const resetForm = () => {
+                setEditingId(null);
+                setTitle('');
+                setText('');
+                setCtaText('');
+                setCtaLink('');
+                setImage(null);
+            };
+
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-1">
+                        <h2 className="text-2xl font-bold mb-4">{editingId ? 'Edit News' : 'Add News'}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input type="text" placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                            <textarea placeholder="Text" value={text} onChange={e => setText(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                            <input type="text" placeholder="CTA Button Text" value={ctaText} onChange={e => setCtaText(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" />
+                            <input type="url" placeholder="CTA Button Link" value={ctaLink} onChange={e => setCtaLink(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" />
+                            <input type="file" onChange={e => setImage(e.target.files[0])} className="w-full text-sm" />
+                            <div className="flex gap-2">
+                                <button type="submit" className="bg-blue-500 px-4 py-2 rounded">{editingId ? 'Update' : 'Add'}</button>
+                                {editingId && <button type="button" onClick={resetForm} className="bg-gray-500 px-4 py-2 rounded">Cancel</button>}
+                            </div>
+                        </form>
+                    </div>
+                    <div className="md:col-span-2">
+                        <h2 className="text-2xl font-bold mb-4">Existing News</h2>
+                        <div className="space-y-4">
+                            {news.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(article => (
+                                <div key={article.id} className="bg-gray-800 p-4 rounded flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-bold">{article.title}</h3>
+                                        <p className="text-sm text-gray-400">{article.text.substring(0, 100)}...</p>
+                                        {article.imageUrl && <img src={article.imageUrl} className="w-20 h-20 object-cover mt-2 rounded" />}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleEdit(article)} className="text-sm bg-yellow-500 px-2 py-1 rounded">Edit</button>
+                                        <button onClick={() => handleDelete(article.id)} className="text-sm bg-red-500 px-2 py-1 rounded">Delete</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Cms = () => {
+            return (
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold mb-8">Content Management System</h1>
+                    <NewsManager />
+                </div>
+            );
+        };
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<Cms />);
+    </script>
+</body>
+</html>

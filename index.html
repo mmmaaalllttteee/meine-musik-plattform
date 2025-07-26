@@ -12,6 +12,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
         import { 
             getAuth, 
             onAuthStateChanged,
@@ -25,7 +26,7 @@
 
         // Deine Firebase-Konfiguration
         const firebaseConfig = {
-            apiKey: "AIzaSyCh7QDyLNWS41bQTbVdfHKZnOAhZlF2aqw",
+            apiKey: "AIzaSyDUGeLsuJgFfdK-JR7Uqh3GhSC6L9UW7JE",
             authDomain: "meine-musikplattform.firebaseapp.com",
             projectId: "meine-musikplattform",
             storageBucket: "meine-musikplattform.appspot.com",
@@ -38,6 +39,10 @@
         let app;
         try {
             app = initializeApp(firebaseConfig);
+            const appCheck = initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider('YOUR_RECAPTCHA_V3_SITE_KEY'),
+                isTokenAutoRefreshEnabled: true
+            });
         } catch (e) {
             console.error("Firebase initialization error:", e);
         }
@@ -334,6 +339,15 @@
             const data = mockDashboardData;
             const [searchTerm, setSearchTerm] = useState("");
             const [searchResults, setSearchResults] = useState([]);
+            const [news, setNews] = useState([]);
+
+            useEffect(() => {
+                const fetchNews = async () => {
+                    const newsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "news"));
+                    setNews(newsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                };
+                fetchNews();
+            }, []);
 
             const handleSearch = (e) => {
                 const term = e.target.value;
@@ -381,6 +395,25 @@
                         <div className="md:col-span-2 lg:col-span-2 grid grid-cols-2 gap-6"><QuickAccessWidget title="Projekte" icon="briefcase" pageId="projects" /><QuickAccessWidget title="Vorlagen" icon="fileText" pageId="library" /></div>
                         <div className="md:col-span-2 lg:col-span-2 row-span-2"><RecentActivityWidget activities={activities} /></div>
                         <div className="md:col-span-1 lg:col-span-1"><LearningProgressWidget learning={data.learningProgress} /></div>
+                        <div className="md:col-span-2 lg:col-span-2 row-span-2 glass-pane p-6 rounded-2xl">
+                            <h3 className="font-bold text-lg mb-4 text-shadow">News</h3>
+                            <div className="space-y-4">
+                                {news.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(article => (
+                                    <div key={article.id} className="flex gap-4">
+                                        {article.imageUrl && <img src={article.imageUrl} className="w-24 h-24 object-cover rounded-lg" />}
+                                        <div>
+                                            <h4 className="font-bold">{article.title}</h4>
+                                            <p className="text-sm text-gray-300 mt-1">{article.text}</p>
+                                            {article.ctaText && article.ctaLink && (
+                                                <a href={article.ctaLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 bg-blue-500 text-white px-3 py-1 rounded-md text-sm">
+                                                    {article.ctaText}
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                         <div className="md:col-span-1 lg:col-span-1 grid grid-cols-1 gap-6">
                             <div className="glass-pane p-6 rounded-2xl">
                                 <h3 className="font-bold text-lg mb-3 text-shadow">Support Hub</h3>
