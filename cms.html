@@ -328,6 +328,96 @@
             );
         };
 
+        const KnowledgeBaseManager = () => {
+            const [articles, setArticles] = useState([]);
+            const [title, setTitle] = useState('');
+            const [category, setCategory] = useState('');
+            const [content, setContent] = useState('');
+            const [editingId, setEditingId] = useState(null);
+
+            const fetchArticles = async () => {
+                const articlesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
+                setArticles(articlesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            };
+
+            useEffect(() => {
+                fetchArticles();
+            }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const articleData = { title, category, content, createdAt: new Date() };
+
+                if (editingId) {
+                    const docRef = window.firebase.doc(window.firebase.db, "knowledgeBase", editingId);
+                    await window.firebase.updateDoc(docRef, articleData);
+                } else {
+                    await window.firebase.addDoc(window.firebase.collection(window.firebase.db, "knowledgeBase"), articleData);
+                }
+
+                resetForm();
+                fetchArticles();
+            };
+
+            const handleEdit = (article) => {
+                setEditingId(article.id);
+                setTitle(article.title);
+                setCategory(article.category);
+                setContent(article.content);
+            };
+
+            const handleDelete = async (id) => {
+                const docRef = window.firebase.doc(window.firebase.db, "knowledgeBase", id);
+                await window.firebase.deleteDoc(docRef);
+                fetchArticles();
+            };
+
+            const resetForm = () => {
+                setEditingId(null);
+                setTitle('');
+                setCategory('');
+                setContent('');
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Knowledge Base Manager</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="md:col-span-1">
+                            <h3 className="text-xl font-bold mb-4">{editingId ? 'Edit Article' : 'Add Article'}</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="text" placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <input type="text" placeholder="Category" value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <textarea placeholder="Content" value={content} onChange={e => setContent(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white h-48" required />
+                                <div className="flex gap-2">
+                                    <button type="submit" className="bg-blue-500 px-4 py-2 rounded">{editingId ? 'Update' : 'Add'}</button>
+                                    {editingId && <button type="button" onClick={resetForm} className="bg-gray-500 px-4 py-2 rounded">Cancel</button>}
+                                </div>
+                            </form>
+                        </div>
+                        <div className="md:col-span-2">
+                            <h3 className="text-xl font-bold mb-4">Existing Articles</h3>
+                            <div className="space-y-4">
+                                {articles.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(article => (
+                                    <div key={article.id} className="bg-gray-800 p-4 rounded flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-bold">{article.title}</h4>
+                                            <p className="text-sm text-gray-400">{article.content.substring(0, 100)}...</p>
+                                            <span className="text-xs bg-gray-700 px-2 py-1 rounded-full mt-2 inline-block">{article.category}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEdit(article)} className="text-sm bg-yellow-500 px-2 py-1 rounded">Edit</button>
+                                            <button onClick={() => handleDelete(article.id)} className="text-sm bg-red-500 px-2 py-1 rounded">Delete</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const Cms = () => {
             const [activeTab, setActiveTab] = useState('news');
 
@@ -366,10 +456,12 @@
                         <button onClick={() => setActiveTab('news')} className={`py-2 px-4 ${activeTab === 'news' ? 'border-b-2 border-blue-500' : ''}`}>News</button>
                         <button onClick={() => setActiveTab('landing')} className={`py-2 px-4 ${activeTab === 'landing' ? 'border-b-2 border-blue-500' : ''}`}>Landing Page</button>
                         <button onClick={() => setActiveTab('library')} className={`py-2 px-4 ${activeTab === 'library' ? 'border-b-2 border-blue-500' : ''}`}>Smart Library</button>
+                        <button onClick={() => setActiveTab('knowledgeBase')} className={`py-2 px-4 ${activeTab === 'knowledgeBase' ? 'border-b-2 border-blue-500' : ''}`}>Knowledge Base</button>
                     </div>
                     {activeTab === 'news' && <NewsManager />}
                     {activeTab === 'landing' && <LandingPageManager />}
                     {activeTab === 'library' && <SmartLibraryManager />}
+                    {activeTab === 'knowledgeBase' && <KnowledgeBaseManager />}
                 </div>
             );
         };

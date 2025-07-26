@@ -856,7 +856,13 @@
             const [activeTab, setActiveTab] = useState('assistant');
             const KnowledgeBaseView = () => {
                 const [articles, setArticles] = useState([]);
-                useEffect(() => { setArticles(mockKnowledgeBase.data); }, []);
+                useEffect(() => {
+                    const fetchArticles = async () => {
+                        const articlesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
+                        setArticles(articlesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    };
+                    fetchArticles();
+                }, []);
                 return (<div className="space-y-4">{articles.map(article => (<div key={article.id} className="glass-pane p-4 rounded-2xl"><h3 className="font-bold text-shadow">{article.title}</h3><p className="text-sm text-gray-300 mt-1">{article.category}</p></div>))}</div>);
             };
             const AssistantView = () => {
