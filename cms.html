@@ -228,6 +228,106 @@
             );
         };
 
+        const SmartLibraryManager = () => {
+            const [documents, setDocuments] = useState([]);
+            const [title, setTitle] = useState('');
+            const [description, setDescription] = useState('');
+            const [category, setCategory] = useState('');
+            const [file, setFile] = useState(null);
+            const [editingId, setEditingId] = useState(null);
+
+            const fetchDocuments = async () => {
+                const docsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "smartLibrary"));
+                setDocuments(docsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            };
+
+            useEffect(() => {
+                fetchDocuments();
+            }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                let fileUrl = '';
+                if (file) {
+                    const storageRef = window.firebase.ref(window.firebase.storage, `library-documents/${file.name}`);
+                    await window.firebase.uploadBytes(storageRef, file);
+                    fileUrl = await window.firebase.getDownloadURL(storageRef);
+                }
+
+                const docData = { title, description, category, fileUrl, createdAt: new Date() };
+
+                if (editingId) {
+                    const docRef = window.firebase.doc(window.firebase.db, "smartLibrary", editingId);
+                    await window.firebase.updateDoc(docRef, docData);
+                } else {
+                    await window.firebase.addDoc(window.firebase.collection(window.firebase.db, "smartLibrary"), docData);
+                }
+
+                resetForm();
+                fetchDocuments();
+            };
+
+            const handleEdit = (doc) => {
+                setEditingId(doc.id);
+                setTitle(doc.title);
+                setDescription(doc.description);
+                setCategory(doc.category);
+            };
+
+            const handleDelete = async (id) => {
+                const docRef = window.firebase.doc(window.firebase.db, "smartLibrary", id);
+                await window.firebase.deleteDoc(docRef);
+                fetchDocuments();
+            };
+
+            const resetForm = () => {
+                setEditingId(null);
+                setTitle('');
+                setDescription('');
+                setCategory('');
+                setFile(null);
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Smart Library Manager</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="md:col-span-1">
+                            <h3 className="text-xl font-bold mb-4">{editingId ? 'Edit Document' : 'Add Document'}</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="text" placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <input type="text" placeholder="Category" value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2 rounded bg-gray-800 text-white" required />
+                                <input type="file" onChange={e => setFile(e.target.files[0])} className="w-full text-sm" />
+                                <div className="flex gap-2">
+                                    <button type="submit" className="bg-blue-500 px-4 py-2 rounded">{editingId ? 'Update' : 'Add'}</button>
+                                    {editingId && <button type="button" onClick={resetForm} className="bg-gray-500 px-4 py-2 rounded">Cancel</button>}
+                                </div>
+                            </form>
+                        </div>
+                        <div className="md:col-span-2">
+                            <h3 className="text-xl font-bold mb-4">Existing Documents</h3>
+                            <div className="space-y-4">
+                                {documents.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(doc => (
+                                    <div key={doc.id} className="bg-gray-800 p-4 rounded flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-bold">{doc.title}</h4>
+                                            <p className="text-sm text-gray-400">{doc.description}</p>
+                                            <span className="text-xs bg-gray-700 px-2 py-1 rounded-full mt-2 inline-block">{doc.category}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEdit(doc)} className="text-sm bg-yellow-500 px-2 py-1 rounded">Edit</button>
+                                            <button onClick={() => handleDelete(doc.id)} className="text-sm bg-red-500 px-2 py-1 rounded">Delete</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const Cms = () => {
             const [activeTab, setActiveTab] = useState('news');
 
@@ -265,9 +365,11 @@
                     <div className="flex border-b border-gray-700 mb-8">
                         <button onClick={() => setActiveTab('news')} className={`py-2 px-4 ${activeTab === 'news' ? 'border-b-2 border-blue-500' : ''}`}>News</button>
                         <button onClick={() => setActiveTab('landing')} className={`py-2 px-4 ${activeTab === 'landing' ? 'border-b-2 border-blue-500' : ''}`}>Landing Page</button>
+                        <button onClick={() => setActiveTab('library')} className={`py-2 px-4 ${activeTab === 'library' ? 'border-b-2 border-blue-500' : ''}`}>Smart Library</button>
                     </div>
                     {activeTab === 'news' && <NewsManager />}
                     {activeTab === 'landing' && <LandingPageManager />}
+                    {activeTab === 'library' && <SmartLibraryManager />}
                 </div>
             );
         };
