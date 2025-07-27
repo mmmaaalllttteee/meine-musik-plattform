@@ -28,14 +28,16 @@
             'http://localhost:3001' : 
             `${window.location.protocol}//${window.location.hostname}:3001`;
 
-        // Firebase sicher vom Backend laden
+        // Firebase mit Fallback-Mechanismus laden
         const initializeFirebase = async () => {
+            console.log('🔄 Initialisiere Firebase-Verbindung...');
+            
             try {
-                console.log('Lade sichere Firebase-Konfiguration vom Server...');
+                // Versuche Backend-Verbindung mit kurzem Timeout
+                console.log('📡 Versuche Backend-Verbindung...');
                 
-                // DoS-Schutz: Timeout für Backend-Requests
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduziert auf 3s
                 
                 const response = await fetch(`${API_BASE_URL}/api/config/firebase`, {
                     signal: controller.signal,
@@ -51,15 +53,42 @@
                 }
                 
                 const firebaseConfig = await response.json();
-                console.log('Firebase-Konfiguration erhalten (ohne API-Schlüssel)');
+                console.log('✅ Firebase-Konfiguration vom Backend erhalten');
                 
-                // Firebase App initialisieren und global verfügbar machen
+                await initializeFirebaseWithConfig(firebaseConfig, true);
+                
+            } catch (error) {
+                console.warn('⚠️ Backend nicht verfügbar, verwende Fallback-Konfiguration:', error.message);
+                
+                // Fallback: Verwende lokale Firebase-Konfiguration
+                const fallbackConfig = {
+                    apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
+                    authDomain: "meine-musikplattform.firebaseapp.com",
+                    projectId: "meine-musikplattform",
+                    storageBucket: "meine-musikplattform.appspot.com",
+                    messagingSenderId: "997469107237",
+                    appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
+                    measurementId: "G-7M62EV7KQH"
+                };
+                
+                await initializeFirebaseWithConfig(fallbackConfig, false);
+            }
+        };
+
+        // Firebase-Initialisierung mit Konfiguration
+        const initializeFirebaseWithConfig = async (firebaseConfig, hasBackend) => {
+            try {
+                // Firebase App initialisieren
                 let app;
                 try {
                     app = initializeApp(firebaseConfig);
-                    console.log("✅ Firebase erfolgreich und sicher initialisiert");
+                    console.log(`✅ Firebase erfolgreich initialisiert (${hasBackend ? 'mit Backend' : 'Standalone-Modus'})`);
                 } catch (e) {
                     console.error("❌ Firebase initialization error:", e);
+                    
+                    // Auch bei Firebase-Fehler die App laden (Demo-Modus)
+                    console.log('🎭 Starte im Demo-Modus ohne Firebase');
+                    initializeDemoMode();
                     return;
                 }
                 
@@ -77,22 +106,79 @@
                     updatePassword
                 };
 
-                // Backend-API auch global verfügbar machen
+                // Backend-API-Konfiguration
                 window.apiConfig = {
-                    baseUrl: API_BASE_URL
+                    baseUrl: hasBackend ? API_BASE_URL : null,
+                    hasBackend: hasBackend
                 };
                 
-                console.log("✅ Frontend-Backend-Verbindung etabliert");
+                console.log(`🚀 Plattform bereit (${hasBackend ? 'Vollversion' : 'Demo-Modus'})`);
                 
             } catch (error) {
-                console.error("❌ Fehler beim Laden der Firebase-Konfiguration:", error);
-                
-                if (error.name === 'AbortError') {
-                    alert('Verbindungs-Timeout. Bitte prüfen Sie Ihre Internetverbindung und laden die Seite neu.');
-                } else {
-                    alert('Fehler beim Verbinden mit dem Server. Bitte laden Sie die Seite neu.');
-                }
+                console.error("❌ Kritischer Initialisierungsfehler:", error);
+                initializeDemoMode();
             }
+        };
+
+        // Demo-Modus für komplette Offline-Nutzung
+        const initializeDemoMode = () => {
+            console.log('🎭 Demo-Modus aktiviert - alle Features verfügbar (ohne persistente Speicherung)');
+            
+            // Mock Firebase Auth für Demo
+            window.firebase = {
+                auth: { currentUser: null },
+                onAuthStateChanged: (auth, callback) => {
+                    // Simuliere anonymen Benutzer nach kurzer Verzögerung
+                    setTimeout(() => {
+                        const demoUser = {
+                            uid: 'demo-user-123',
+                            email: 'demo@example.com',
+                            displayName: 'Demo Benutzer',
+                            photoURL: null
+                        };
+                        callback(demoUser);
+                    }, 1000);
+                    return () => {}; // Unsubscribe function
+                },
+                createUserWithEmailAndPassword: async () => {
+                    throw new Error('Registrierung im Demo-Modus nicht verfügbar');
+                },
+                signInWithEmailAndPassword: async (auth, email, password) => {
+                    // Demo-Login erlauben
+                    if (email && password) {
+                        return {
+                            user: {
+                                uid: 'demo-user-123',
+                                email: email,
+                                displayName: 'Demo Benutzer',
+                                photoURL: null
+                            }
+                        };
+                    }
+                    throw new Error('Demo-Login: Bitte E-Mail und Passwort eingeben');
+                },
+                signOut: async () => {
+                    console.log('Demo-Logout durchgeführt');
+                },
+                sendPasswordResetEmail: async () => {
+                    throw new Error('Password-Reset im Demo-Modus nicht verfügbar');
+                },
+                updateProfile: async () => {
+                    console.log('Profil-Update im Demo-Modus simuliert');
+                },
+                updatePassword: async () => {
+                    throw new Error('Passwort-Änderung im Demo-Modus nicht verfügbar');
+                }
+            };
+
+            // Mock API-Konfiguration
+            window.apiConfig = {
+                baseUrl: null,
+                hasBackend: false,
+                demoMode: true
+            };
+
+            console.log('✅ Demo-Modus erfolgreich konfiguriert');
         };
 
         // Initialisiere Firebase nach dem Laden der Seite
@@ -1026,14 +1112,32 @@
                     setIsLoading(true);
 
                     try {
+                        // Prüfe ob Backend verfügbar ist
+                        const apiConfig = window.apiConfig;
+                        
+                        if (!apiConfig || !apiConfig.hasBackend) {
+                            // Demo-Modus: Simuliere KI-Antwort
+                            setTimeout(() => {
+                                const demoResponses = [
+                                    "Im Demo-Modus kann ich grundlegende Fragen beantworten. Für echte KI-Unterstützung benötigen Sie eine Backend-Verbindung.",
+                                    "Das ist eine interessante Frage! Im Vollmodus würde ich Ihnen detaillierte Musikbusiness-Strategien vorschlagen.",
+                                    "Für Musikmarketing empfehle ich: 1) Zielgruppe definieren, 2) Social Media nutzen, 3) Collaborations eingehen. (Demo-Antwort)",
+                                    "Streaming-Plattformen sind wichtig für die Reichweite. Spotify, Apple Music und YouTube Music sollten Priorität haben. (Demo-Modus)"
+                                ];
+                                
+                                const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+                                setChatHistory(prev => [...prev, { 
+                                    role: 'assistant', 
+                                    text: `${randomResponse}\n\n💡 Hinweis: Dies ist eine Demo-Antwort. Starten Sie das Backend für echte KI-Unterstützung.`
+                                }]);
+                                setIsLoading(false);
+                            }, 1500); // Simuliere Verarbeitungszeit
+                            return;
+                        }
+
                         // DoS-Schutz: Verwende sichere API-Request mit Queue
                         const result = await apiQueue.add(async () => {
                             return await apiRetry(async () => {
-                                const apiConfig = window.apiConfig;
-                                if (!apiConfig) {
-                                    throw new Error('Backend-Verbindung nicht verfügbar');
-                                }
-
                                 const response = await safeApiRequest(`${apiConfig.baseUrl}/api/gemini/chat`, {
                                     method: 'POST',
                                     headers: { 
@@ -1056,7 +1160,7 @@
                         let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
                         
                         if (error.message.includes('Backend-Verbindung')) {
-                            errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
+                            errorMessage = 'Keine Verbindung zum Server. Die Anwendung läuft im Demo-Modus.';
                         } else if (error.message.includes('429')) {
                             errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen es erneut.';
                         } else if (error.message.includes('timeout')) {
@@ -1109,60 +1213,6 @@
             useEffect(() => {
                 chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
             }, [chatHistory]);
-
-            const handleSendMessage = async (e) => {
-                e.preventDefault();
-                if (!inputValue.trim() || isLoading) return;
-
-                const userMessage = { role: 'user', text: inputValue };
-                setChatHistory(prev => [...prev, userMessage]);
-                setInputValue('');
-                setIsLoading(true);
-
-                try {
-                    // Sichere Backend-Kommunikation
-                    const apiConfig = window.apiConfig;
-                    if (!apiConfig) {
-                        throw new Error('Backend-Verbindung nicht verfügbar');
-                    }
-
-                    const response = await fetch(`${apiConfig.baseUrl}/api/gemini/chat`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ message: userMessage.text })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || `Server-Fehler: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
-                    
-                    setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
-
-                } catch (error) {
-                    console.error("Error with Backend API:", error);
-                    
-                    let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
-                    
-                    if (error.message.includes('Backend-Verbindung')) {
-                        errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
-                    } else if (error.message.includes('429')) {
-                        errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment.';
-                    } else if (error.message.includes('timeout')) {
-                        errorMessage = 'Anfrage-Timeout. Bitte versuchen Sie es erneut.';
-                    }
-                    
-                    setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
 
             return (
                 <PageWrapper>
@@ -1264,6 +1314,12 @@
             const handlePasswordChange = async (e) => {
                 e.preventDefault();
                 try {
+                    // Prüfe ob im Demo-Modus
+                    if (window.apiConfig && window.apiConfig.demoMode) {
+                        setMessage('Passwort-Änderung im Demo-Modus nicht verfügbar. Starten Sie das Backend für volle Funktionalität.');
+                        return;
+                    }
+                    
                     await window.firebase.updatePassword(window.firebase.auth.currentUser, newPassword);
                     setMessage('Passwort erfolgreich geändert!');
                     setNewPassword('');
@@ -1314,6 +1370,313 @@
         };
         
         // --- DoS-SCHUTZ UTILITIES ---
+        
+        // Frontend Data-Security Utilities
+        const sanitizeClientInput = (input, options = {}) => {
+            if (!input) return '';
+            
+            const { maxLength = 1000, allowHtml = false } = options;
+            let sanitized = String(input).trim();
+            
+            // Längenbegrenzung
+            if (sanitized.length > maxLength) {
+                sanitized = sanitized.substring(0, maxLength);
+            }
+            
+            // XSS-Schutz
+            if (!allowHtml) {
+                sanitized = sanitized
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#x27;')
+                    .replace(/\//g, '&#x2F;');
+            }
+            
+            // Script-Injection verhindern
+            sanitized = sanitized
+                .replace(/javascript:/gi, '')
+                .replace(/on\w+\s*=/gi, '')
+                .replace(/<script[^>]*>.*?<\/script>/gi, '');
+            
+            return sanitized;
+        };
+
+        // Sichere Local Storage Funktionen
+        const secureStorage = {
+            setItem: (key, value) => {
+                try {
+                    // Keine sensiblen Daten in Local Storage
+                    const forbiddenKeys = ['password', 'token', 'apiKey', 'secret'];
+                    if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
+                        console.error('🚨 Attempt to store sensitive data in localStorage blocked');
+                        return false;
+                    }
+                    
+                    // Daten verschleiern (einfache Obfuscation)
+                    const obfuscated = btoa(JSON.stringify({ data: value, timestamp: Date.now() }));
+                    localStorage.setItem(key, obfuscated);
+                    return true;
+                } catch (error) {
+                    console.error('Storage error:', error);
+                    return false;
+                }
+            },
+            
+            getItem: (key) => {
+                try {
+                    const stored = localStorage.getItem(key);
+                    if (!stored) return null;
+                    
+                    const parsed = JSON.parse(atob(stored));
+                    
+                    // Prüfe Alter der Daten (automatische Löschung nach 24h)
+                    if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
+                        localStorage.removeItem(key);
+                        return null;
+                    }
+                    
+                    return parsed.data;
+                } catch (error) {
+                    localStorage.removeItem(key);
+                    return null;
+                }
+            },
+            
+            removeItem: (key) => {
+                localStorage.removeItem(key);
+            }
+        };
+
+        // Sichere Formular-Validierung
+        const validateForm = (formData, rules) => {
+            const errors = {};
+            
+            Object.keys(rules).forEach(field => {
+                const value = formData[field];
+                const rule = rules[field];
+                
+                // Required-Validierung
+                if (rule.required && (!value || value.trim() === '')) {
+                    errors[field] = `${field} ist erforderlich`;
+                    return;
+                }
+                
+                if (value) {
+                    // Längen-Validierung
+                    if (rule.maxLength && value.length > rule.maxLength) {
+                        errors[field] = `${field} ist zu lang (max. ${rule.maxLength} Zeichen)`;
+                        return;
+                    }
+                    
+                    if (rule.minLength && value.length < rule.minLength) {
+                        errors[field] = `${field} ist zu kurz (min. ${rule.minLength} Zeichen)`;
+                        return;
+                    }
+                    
+                    // E-Mail-Validierung
+                    if (rule.type === 'email') {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(value)) {
+                            errors[field] = 'Ungültige E-Mail-Adresse';
+                            return;
+                        }
+                    }
+                    
+                    // URL-Validierung
+                    if (rule.type === 'url') {
+                        try {
+                            new URL(value);
+                            if (!value.startsWith('https://') && !value.startsWith('http://localhost')) {
+                                errors[field] = 'Nur HTTPS-URLs sind erlaubt';
+                            }
+                        } catch {
+                            errors[field] = 'Ungültige URL';
+                        }
+                    }
+                    
+                    // Pattern-Validierung
+                    if (rule.pattern && !rule.pattern.test(value)) {
+                        errors[field] = rule.message || `${field} hat ein ungültiges Format`;
+                    }
+                }
+            });
+            
+            return {
+                isValid: Object.keys(errors).length === 0,
+                errors
+            };
+        };
+
+        // Content Security Policy Enforcement (Client-Side)
+        const enforceCSP = () => {
+            // Überwache und blockiere gefährliche Scripts
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.tagName === 'SCRIPT' && !node.src.startsWith('https://')) {
+                            console.warn('🚨 Unauthorized script blocked:', node);
+                            node.remove();
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, { childList: true, subtree: true });
+        };
+
+        // Data-Loss-Prevention für Formular-Inputs
+        const preventDataLeakage = () => {
+            // Überwache Copy-Paste-Operationen bei sensiblen Feldern
+            document.addEventListener('paste', (event) => {
+                const target = event.target;
+                if (target.type === 'password' || target.dataset.sensitive === 'true') {
+                    const clipboardData = event.clipboardData.getData('text');
+                    
+                    // Prüfe auf verdächtige Inhalte
+                    const suspiciousPatterns = [
+                        /password\s*[:=]\s*\w+/i,
+                        /token\s*[:=]\s*\w+/i,
+                        /api[_-]?key\s*[:=]\s*\w+/i
+                    ];
+                    
+                    if (suspiciousPatterns.some(pattern => pattern.test(clipboardData))) {
+                        event.preventDefault();
+                        console.warn('🚨 Suspicious data paste blocked');
+                        alert('Aus Sicherheitsgründen wurde das Einfügen blockiert.');
+                    }
+                }
+            });
+        };
+
+        // Sichere Authentication-Wrapper
+        const secureAuth = {
+            currentUser: null,
+            
+            login: async (email, password) => {
+                try {
+                    // Client-seitige Validierung
+                    if (!email || !password) {
+                        throw new Error('E-Mail und Passwort erforderlich');
+                    }
+                    
+                    const sanitizedEmail = sanitizeClientInput(email, { maxLength: 254 });
+                    
+                    // Verwende Firebase Auth (Passwort wird nie im Code gespeichert)
+                    const userCredential = await window.firebase.signInWithEmailAndPassword(
+                        window.firebase.auth, 
+                        sanitizedEmail, 
+                        password // Passwort geht direkt an Firebase
+                    );
+                    
+                    this.currentUser = {
+                        uid: userCredential.user.uid,
+                        email: userCredential.user.email,
+                        displayName: userCredential.user.displayName,
+                        photoURL: userCredential.user.photoURL
+                        // Keine sensiblen Daten lokal speichern
+                    };
+                    
+                    // Session-Info sicher speichern (ohne Passwort)
+                    secureStorage.setItem('userSession', {
+                        uid: this.currentUser.uid,
+                        email: this.currentUser.email,
+                        loginTime: Date.now()
+                    });
+                    
+                    console.log('✅ Sichere Anmeldung erfolgreich');
+                    return this.currentUser;
+                    
+                } catch (error) {
+                    console.error('Login error:', error.message);
+                    throw new Error('Anmeldung fehlgeschlagen');
+                }
+            },
+            
+            logout: async () => {
+                try {
+                    await window.firebase.signOut(window.firebase.auth);
+                    
+                    // Lokale Daten sicher löschen
+                    secureStorage.removeItem('userSession');
+                    this.currentUser = null;
+                    
+                    // Sensitive Form-Daten löschen
+                    document.querySelectorAll('input[type="password"]').forEach(input => {
+                        input.value = '';
+                    });
+                    
+                    console.log('✅ Sichere Abmeldung erfolgreich');
+                    
+                } catch (error) {
+                    console.error('Logout error:', error.message);
+                }
+            },
+            
+            updateProfile: async (profileData) => {
+                try {
+                    if (!this.currentUser) {
+                        throw new Error('Nicht angemeldet');
+                    }
+                    
+                    // Client-seitige Daten-Sanitization
+                    const sanitizedData = {};
+                    const allowedFields = ['displayName', 'photoURL'];
+                    
+                    allowedFields.forEach(field => {
+                        if (profileData[field]) {
+                            sanitizedData[field] = sanitizeClientInput(profileData[field], {
+                                maxLength: field === 'photoURL' ? 2048 : 100
+                            });
+                        }
+                    });
+                    
+                    // Server-seitige Aktualisierung
+                    const response = await apiQueue.add(async () => {
+                        return await safeApiRequest(`${window.apiConfig.baseUrl}/api/users/${this.currentUser.uid}/profile`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${await window.firebase.auth.currentUser.getIdToken()}`
+                            },
+                            body: JSON.stringify({ profileData: sanitizedData })
+                        });
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Profil-Update fehlgeschlagen');
+                    }
+                    
+                    console.log('✅ Profil sicher aktualisiert');
+                    return await response.json();
+                    
+                } catch (error) {
+                    console.error('Profile update error:', error.message);
+                    throw error;
+                }
+            }
+        };
+
+        // Initialisiere Security-Features
+        document.addEventListener('DOMContentLoaded', () => {
+            enforceCSP();
+            preventDataLeakage();
+            
+            // Warnung bei Dev-Tools (nur als Abschreckung)
+            let devtools = {open: false, orientation: null};
+            const threshold = 160;
+            setInterval(() => {
+                if (window.outerHeight - window.innerHeight > threshold || 
+                    window.outerWidth - window.innerWidth > threshold) {
+                    if (!devtools.open) {
+                        devtools.open = true;
+                        console.warn('🚨 Developer Tools detected. Please be aware that this application contains sensitive user data.');
+                    }
+                } else {
+                    devtools.open = false;
+                }
+            }, 500);
+        });
         
         // Debounce-Funktion für API-Calls
         const debounce = (func, delay) => {

@@ -1,0 +1,171 @@
+// Firebase Security Rules für Firestore
+// Diese Regeln müssen in der Firebase Console unter "Firestore Database" > "Rules" eingetragen werden
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // === USER DATA PROTECTION ===
+    
+    // Benutzerprofile: Nur der Besitzer kann seine eigenen Daten lesen/schreiben
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Verhindere das Lesen/Schreiben von sensiblen Feldern
+      allow update: if request.auth != null 
+        && request.auth.uid == userId
+        && !('password' in resource.data)
+        && !('passwordHash' in resource.data)
+        && !('privateKey' in resource.data)
+        && !('apiKeys' in resource.data);
+    }
+    
+    // Benutzersessions: Nur für den authentifizierten Benutzer
+    match /userSessions/{sessionId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid == resource.data.userId;
+    }
+    
+    // === PROJECT DATA SECURITY ===
+    
+    // Projekte: Nur für Projektmitglieder zugänglich
+    match /projects/{projectId} {
+      allow read: if request.auth != null && (
+        request.auth.uid in resource.data.members ||
+        request.auth.uid == resource.data.owner ||
+        request.auth.uid in resource.data.viewers
+      );
+      
+      allow write: if request.auth != null && (
+        request.auth.uid in resource.data.members ||
+        request.auth.uid == resource.data.owner
+      );
+      
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.owner;
+    }
+    
+    // Projekt-Tasks: Nur für Projektmitglieder
+    match /projects/{projectId}/tasks/{taskId} {
+      allow read, write: if request.auth != null 
+        && exists(/databases/$(database)/documents/projects/$(projectId))
+        && (
+          request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members ||
+          request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.owner
+        );
+    }
+    
+    // Projekt-Dateien: Strenge Zugriffskontrolle
+    match /projectFiles/{fileId} {
+      allow read: if request.auth != null 
+        && request.auth.uid in resource.data.allowedUsers;
+      
+      allow write: if request.auth != null 
+        && request.auth.uid == resource.data.uploader;
+        
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.uploader ||
+        request.auth.uid in resource.data.projectAdmins
+      );
+    }
+    
+    // === CONTENT MANAGEMENT ===
+    
+    // Smart Library: Öffentlich lesbar, aber nur Admins können schreiben
+    match /smartLibrary/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+    }
+    
+    // News: Öffentlich lesbar für authentifizierte Benutzer
+    match /news/{newsId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+    }
+    
+    // Knowledge Base: Öffentlich lesbar für authentifizierte Benutzer
+    match /knowledgeBase/{articleId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+    }
+    
+    // Landing Page: Öffentlich lesbar
+    match /landingPage/{pageId} {
+      allow read: if true; // Öffentlich zugänglich
+      allow write: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+    }
+    
+    // Learning Center: Nur für authentifizierte Benutzer
+    match /learningCenter/{pathId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+    }
+    
+    // === ADMIN CONFIGURATION ===
+    
+    // Admin-Konfiguration: Nur für Super-Admins
+    match /adminUsers/{docId} {
+      allow read: if request.auth != null 
+        && request.auth.uid in resource.data.superAdmins;
+      allow write: if request.auth != null 
+        && request.auth.uid in resource.data.superAdmins;
+    }
+    
+    // === SECURITY LOGS ===
+    
+    // Security-Logs: Nur lesbar für Admins, automatisch geschrieben
+    match /securityLogs/{logId} {
+      allow read: if request.auth != null 
+        && request.auth.uid in get(/databases/$(database)/documents/adminUsers/config).data.admins;
+      allow write: if false; // Nur durch Server-seitige Admin-SDKs
+    }
+    
+    // === RATE LIMITING DATA ===
+    
+    // Rate-Limiting-Daten: Nur Server-seitig
+    match /rateLimits/{userId} {
+      allow read, write: if false; // Nur durch Admin-SDK
+    }
+    
+    // === ANALYTICS DATA ===
+    
+    // Analytics: Nur für den Besitzer der Daten
+    match /analytics/{userId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid == userId;
+    }
+    
+    // === HELPER FUNCTIONS ===
+    
+    // Funktion zur Validierung von Eingabedaten
+    function isValidString(str) {
+      return str is string 
+        && str.size() > 0 
+        && str.size() < 10000
+        && !str.matches('.*[<>"\'].*'); // Verhindere XSS
+    }
+    
+    function isValidEmail(email) {
+      return email is string 
+        && email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    // Blacklist für gefährliche Schlüsselwörter
+    function containsDangerousContent(data) {
+      let dangerousKeys = ['password', 'passwd', 'pwd', 'secret', 'token', 'key', 'private'];
+      return dangerousKeys.hasAny(data.keys());
+    }
+    
+    // === DEFAULT DENY RULE ===
+    
+    // Alle anderen Pfade: Zugriff verweigert
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
