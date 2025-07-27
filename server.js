@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fetch = require('node-fetch');
 require('dotenv').config();
 
 const app = express();
@@ -123,13 +124,13 @@ app.post('/api/gemini/chat', apiLimiter, async (req, res) => {
 app.get('/api/config/firebase', (req, res) => {
     // Nur öffentliche Konfigurationswerte senden - API-Schlüssel NICHT!
     res.json({
+        apiKey: FIREBASE_CONFIG.apiKey, // Firebase API-Key ist sicher für Frontend
         authDomain: FIREBASE_CONFIG.authDomain,
         projectId: FIREBASE_CONFIG.projectId,
         storageBucket: FIREBASE_CONFIG.storageBucket,
         messagingSenderId: FIREBASE_CONFIG.messagingSenderId,
         appId: FIREBASE_CONFIG.appId,
         measurementId: FIREBASE_CONFIG.measurementId
-        // apiKey wird NICHT gesendet!
     });
 });
 
