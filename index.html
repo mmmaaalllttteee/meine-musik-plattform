@@ -25,7 +25,7 @@
 
         // Deine Firebase-Konfiguration
         const firebaseConfig = {
-            apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
+            apiKey: "YOUR_FIREBASE_API_KEY", // SICHERHEITSHINWEIS: API-Schlüssel nicht im Code fest codieren. Sicher über Umgebungsvariablen laden.
             authDomain: "meine-musikplattform.firebaseapp.com",
             projectId: "meine-musikplattform",
             storageBucket: "meine-musikplattform.appspot.com",
@@ -304,7 +304,7 @@
                     <footer className="">
                         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
                             <div className="mt-8 md:mt-0 md:order-1">
-                                <p className="text-center text-base text-gray-400">&copy; 2025 Plattform. Alle Rechte vorbehalten.</p>
+                                <p className="text-center text-base text-gray-400">&copy; {new Date().getFullYear()} We make IT work. Alle Rechte vorbehalten.</p>
                             </div>
                         </div>
                     </footer>
@@ -467,23 +467,28 @@
             const editLink = `${baseUrl}?project=${project.id}&mode=edit`;
 
             const copyToClipboard = (text, type) => {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = 0;
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    const successful = document.execCommand('copy');
-                    if(successful) {
+                navigator.clipboard.writeText(text).then(() => {
+                    setCopied(type);
+                    setTimeout(() => setCopied(''), 2000);
+                }).catch(err => {
+                    console.error('Fehler beim Kopieren in die Zwischenablage: ', err);
+                    // Fallback für ältere Browser, falls nötig
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.opacity = 0;
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
                         setCopied(type);
                         setTimeout(() => setCopied(''), 2000);
+                    } catch (err) {
+                        console.error('Fallback: Kopieren fehlgeschlagen', err);
                     }
-                } catch (err) {
-                    console.error('Fallback: Oops, unable to copy', err);
-                }
-                document.body.removeChild(textArea);
+                    document.body.removeChild(textArea);
+                });
             };
 
             return (
@@ -656,17 +661,12 @@
                 const shareIds = selectedFiles.join(',');
                 const shareLink = `${window.location.origin}${window.location.pathname}?share=${shareIds}`;
                 
-                const textArea = document.createElement("textarea");
-                textArea.value = shareLink;
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    alert('Sharing link copied to clipboard!');
-                } catch (err) {
-                    console.error('Oops, unable to copy', err);
-                }
-                document.body.removeChild(textArea);
+                navigator.clipboard.writeText(shareLink).then(() => {
+                     alert('Link zum Teilen wurde in die Zwischenablage kopiert!');
+                }).catch(err => {
+                    console.error('Fehler beim Kopieren: ', err);
+                    alert('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+                });
             };
 
             const toggleFileSelection = (fileId) => {
@@ -843,7 +843,7 @@
                         const prompt = `Du bist ein Experte für das Musikbusiness und agierst als hilfsbereiter Assistent. Deine Aufgabe ist es, Fragen rund um Musikveröffentlichungen, Kampagnenkonzepte, Marketingstrategien und allgemeine Branchenkenntnisse zu beantworten. Gib klare, strukturierte und umsetzbare Ratschläge. Antworte auf Deutsch. Frage des Nutzers: "${userMessage.text}"`;
                         
                         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                        const apiKey = "";
+                        const apiKey = "YOUR_GEMINI_API_KEY"; // SICHERHEITSHINWEIS: API-Schlüssel nicht im Code fest codieren. Sicher über Umgebungsvariablen laden.
                         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
                         const response = await fetch(apiUrl, {
