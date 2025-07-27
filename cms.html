@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="config.js"></script>
 
     <!-- Firebase SDKs -->
     <script type="module">
@@ -18,20 +19,11 @@
 
         // It is recommended to store API keys in environment variables
         // and not directly in the code.
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID",
-            measurementId: "YOUR_MEASUREMENT_ID"
-        };
 
         // Firebase App initialisieren und global verfügbar machen
         let app;
         try {
-            app = initializeApp(firebaseConfig);
+            app = initializeApp(window.firebaseConfig);
             const appCheck = initializeAppCheck(app, {
                 provider: new ReCaptchaV3Provider('6Ld-5J4pAAAAAP0gJ9Vf7q4j_rde_g-4-3f-3P-Z'),
                 isTokenAutoRefreshEnabled: true
