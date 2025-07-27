@@ -33,7 +33,19 @@
             try {
                 console.log('Lade sichere Firebase-Konfiguration vom Server...');
                 
-                const response = await fetch(`${API_BASE_URL}/api/config/firebase`);
+                // DoS-Schutz: Timeout für Backend-Requests
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+                
+                const response = await fetch(`${API_BASE_URL}/api/config/firebase`, {
+                    signal: controller.signal,
+                    headers: {
+                        'User-Agent': 'MusikPlattform-Frontend/1.0'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
                 if (!response.ok) {
                     throw new Error(`Server-Fehler: ${response.status}`);
                 }
@@ -74,7 +86,12 @@
                 
             } catch (error) {
                 console.error("❌ Fehler beim Laden der Firebase-Konfiguration:", error);
-                alert('Fehler beim Verbinden mit dem Server. Bitte laden Sie die Seite neu.');
+                
+                if (error.name === 'AbortError') {
+                    alert('Verbindungs-Timeout. Bitte prüfen Sie Ihre Internetverbindung und laden die Seite neu.');
+                } else {
+                    alert('Fehler beim Verbinden mit dem Server. Bitte laden Sie die Seite neu.');
+                }
             }
         };
 
@@ -1009,29 +1026,28 @@
                     setIsLoading(true);
 
                     try {
-                        // Sichere Backend-Kommunikation
-                        const apiConfig = window.apiConfig;
-                        if (!apiConfig) {
-                            throw new Error('Backend-Verbindung nicht verfügbar');
-                        }
+                        // DoS-Schutz: Verwende sichere API-Request mit Queue
+                        const result = await apiQueue.add(async () => {
+                            return await apiRetry(async () => {
+                                const apiConfig = window.apiConfig;
+                                if (!apiConfig) {
+                                    throw new Error('Backend-Verbindung nicht verfügbar');
+                                }
 
-                        const response = await fetch(`${apiConfig.baseUrl}/api/gemini/chat`, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({ message: userMessage.text })
+                                const response = await safeApiRequest(`${apiConfig.baseUrl}/api/gemini/chat`, {
+                                    method: 'POST',
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json'
+                                    },
+                                    body: JSON.stringify({ message: userMessage.text })
+                                }, 30000); // 30s Timeout für AI-Requests
+
+                                return await response.json();
+                            }, 3, 2000); // 3 Versuche, 2s base delay
                         });
 
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.error || `Server-Fehler: ${response.status}`);
-                        }
-
-                        const result = await response.json();
                         const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
-                        
                         setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
 
                     } catch (error) {
@@ -1042,9 +1058,11 @@
                         if (error.message.includes('Backend-Verbindung')) {
                             errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
                         } else if (error.message.includes('429')) {
-                            errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment.';
+                            errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen es erneut.';
                         } else if (error.message.includes('timeout')) {
-                            errorMessage = 'Anfrage-Timeout. Bitte versuchen Sie es erneut.';
+                            errorMessage = 'Anfrage-Timeout. Der Server braucht zu lange zum Antworten.';
+                        } else if (error.message.includes('Request timeout')) {
+                            errorMessage = 'Verbindungs-Timeout. Bitte prüfen Sie Ihre Internetverbindung.';
                         }
                         
                         setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
@@ -1088,98 +1106,64 @@
                 );
             };
 
-                useEffect(() => {
-                    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-                }, [chatHistory]);
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, [chatHistory]);
 
-                const handleSendMessage = async (e) => {
-                    e.preventDefault();
-                    if (!inputValue.trim() || isLoading) return;
+            const handleSendMessage = async (e) => {
+                e.preventDefault();
+                if (!inputValue.trim() || isLoading) return;
 
-                    const userMessage = { role: 'user', text: inputValue };
-                    setChatHistory(prev => [...prev, userMessage]);
-                    setInputValue('');
-                    setIsLoading(true);
+                const userMessage = { role: 'user', text: inputValue };
+                setChatHistory(prev => [...prev, userMessage]);
+                setInputValue('');
+                setIsLoading(true);
 
-                    try {
-                        // Sichere Backend-Kommunikation
-                        const apiConfig = window.apiConfig;
-                        if (!apiConfig) {
-                            throw new Error('Backend-Verbindung nicht verfügbar');
-                        }
-
-                        const response = await fetch(`${apiConfig.baseUrl}/api/gemini/chat`, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({ message: userMessage.text })
-                        });
-
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.error || `Server-Fehler: ${response.status}`);
-                        }
-
-                        const result = await response.json();
-                        const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
-                        
-                        setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
-
-                    } catch (error) {
-                        console.error("Error with Backend API:", error);
-                        
-                        let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
-                        
-                        if (error.message.includes('Backend-Verbindung')) {
-                            errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
-                        } else if (error.message.includes('429')) {
-                            errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment.';
-                        } else if (error.message.includes('timeout')) {
-                            errorMessage = 'Anfrage-Timeout. Bitte versuchen Sie es erneut.';
-                        }
-                        
-                        setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
-                    } finally {
-                        setIsLoading(false);
+                try {
+                    // Sichere Backend-Kommunikation
+                    const apiConfig = window.apiConfig;
+                    if (!apiConfig) {
+                        throw new Error('Backend-Verbindung nicht verfügbar');
                     }
-                };
 
-                return (
-                    <div className="flex flex-col h-[70vh] glass-pane rounded-2xl">
-                        <div className="flex-grow p-6 overflow-y-auto">
-                            <div className="space-y-4">
-                                {chatHistory.map((msg, index) => (
-                                    <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                        {msg.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-blue-500 flex-shrink-0"></div>}
-                                        <div className={`max-w-full sm:max-w-xl p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white/10 text-gray-200'}`}>
-                                            <p className="text-sm whitespace-pre-wrap text-shadow">{msg.text}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {isLoading && (
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-blue-500"></div>
-                                        <div className="max-w-md p-3 rounded-lg bg-white/10 flex items-center space-x-1">
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={chatEndRef} />
-                            </div>
-                        </div>
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-white/20 flex items-center gap-3">
-                            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Stelle eine Frage..." className="w-full px-4 py-2 border border-white/20 rounded-full bg-white/10 text-white placeholder-gray-400" disabled={isLoading} />
-                            <button type="submit" className="bg-blue-500 text-white p-3 rounded-full disabled:bg-blue-400/50" disabled={isLoading}>
-                                <Icon name="send" className="w-5 h-5" />
-                            </button>
-                        </form>
-                    </div>
-                );
+                    const response = await fetch(`${apiConfig.baseUrl}/api/gemini/chat`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ message: userMessage.text })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Server-Fehler: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
+                    
+                    setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
+
+                } catch (error) {
+                    console.error("Error with Backend API:", error);
+                    
+                    let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
+                    
+                    if (error.message.includes('Backend-Verbindung')) {
+                        errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
+                    } else if (error.message.includes('429')) {
+                        errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment.';
+                    } else if (error.message.includes('timeout')) {
+                        errorMessage = 'Anfrage-Timeout. Bitte versuchen Sie es erneut.';
+                    }
+                    
+                    setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
+                } finally {
+                    setIsLoading(false);
+                }
             };
+
             return (
                 <PageWrapper>
                     <header className="text-center mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">Support Hub</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Finde Antworten oder frage unseren KI-Assistenten.</p></header>
@@ -1329,307 +1313,111 @@
             );
         };
         
-        // --- AUTHENTICATION COMPONENTS ---
-        const AuthContainer = ({ children }) => (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="w-full max-w-md p-8 space-y-6 glass-pane rounded-2xl">
-                    {children}
-                </div>
-            </div>
-        );
-
-        const LoginPage = ({ setActiveAuthPage }) => {
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [error, setError] = useState('');
-
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setError('');
-                try {
-                    await window.firebase.signInWithEmailAndPassword(window.firebase.auth, email, password);
-                } catch (err) {
-                    setError(err.message);
-                }
+        // --- DoS-SCHUTZ UTILITIES ---
+        
+        // Debounce-Funktion für API-Calls
+        const debounce = (func, delay) => {
+            let timeoutId;
+            return (...args) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => func.apply(null, args), delay);
             };
-
-            return (
-                <AuthContainer>
-                    <h2 className="text-2xl font-bold text-center text-shadow">Anmelden</h2>
-                    {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Anmelden</button>
-                    </form>
-                    <div className="text-sm text-center">
-                        <a href="#" onClick={() => setActiveAuthPage('forgot')} className="font-medium text-blue-400 hover:underline">Passwort vergessen?</a>
-                    </div>
-                    <div className="text-sm text-center">
-                        Noch kein Konto? <a href="#" onClick={() => setActiveAuthPage('register')} className="font-medium text-blue-400 hover:underline">Registrieren</a>
-                    </div>
-                </AuthContainer>
-            );
         };
 
-        const RegisterPage = ({ setActiveAuthPage }) => {
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [displayName, setDisplayName] = useState('');
-            const [error, setError] = useState('');
-
-            const handleRegister = async (e) => {
-                e.preventDefault();
-                setError('');
+        // Exponential Backoff für API-Retry
+        const apiRetry = async (apiCall, maxRetries = 3, baseDelay = 1000) => {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
-                    const userCredential = await window.firebase.createUserWithEmailAndPassword(window.firebase.auth, email, password);
-                    await window.firebase.updateProfile(userCredential.user, { displayName });
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            return (
-                <AuthContainer>
-                    <h2 className="text-2xl font-bold text-center text-shadow">Konto erstellen</h2>
-                    {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-                    <form onSubmit={handleRegister} className="space-y-4">
-                        <input type="text" placeholder="Anzeigename" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Registrieren</button>
-                    </form>
-                    <div className="text-sm text-center">
-                        Bereits ein Konto? <a href="#" onClick={() => setActiveAuthPage('login')} className="font-medium text-blue-400 hover:underline">Anmelden</a>
-                    </div>
-                </AuthContainer>
-            );
-        };
-
-        const ForgotPasswordPage = ({ setActiveAuthPage }) => {
-            const [email, setEmail] = useState('');
-            const [message, setMessage] = useState('');
-            const [error, setError] = useState('');
-
-            const handleReset = async (e) => {
-                e.preventDefault();
-                setError('');
-                setMessage('');
-                try {
-                    await window.firebase.sendPasswordResetEmail(window.firebase.auth, email);
-                    setMessage('E-Mail zum Zurücksetzen des Passworts wurde gesendet.');
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            return (
-                <AuthContainer>
-                    <h2 className="text-2xl font-bold text-center text-shadow">Passwort zurücksetzen</h2>
-                    {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-                    {message && <p className="text-green-400 text-sm text-center">{message}</p>}
-                    <form onSubmit={handleReset} className="space-y-4">
-                        <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                        <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Link senden</button>
-                    </form>
-                     <div className="text-sm text-center">
-                        <a href="#" onClick={() => setActiveAuthPage('login')} className="font-medium text-blue-400 hover:underline">Zurück zum Login</a>
-                    </div>
-                </AuthContainer>
-            );
-        };
-
-        // --- Main App Component ---
-        function App() {
-            const { user } = useAuth();
-            const [activePage, setActivePage] = useState('dashboard');
-            const [activeAuthPage, setActiveAuthPage] = useState('landing');
-            const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-            const [projects, setProjects] = useState(initialProjects);
-            const [selectedProjectId, setSelectedProjectId] = useState(null);
-            const [activities, setActivities] = useState([]);
-            const [complyCheckScore, setComplyCheckScore] = useState("N/A");
-            const [isDarkMode, setIsDarkMode] = useState(true);
-            
-            // Public project view state
-            const [publicProject, setPublicProject] = useState(null);
-            const [publicAccessMode, setPublicAccessMode] = useState('view');
-
-            useEffect(() => {
-                if (isDarkMode) {
-                    document.documentElement.classList.add('dark');
-                    document.documentElement.classList.remove('light');
-                } else {
-                    document.documentElement.classList.add('light');
-                    document.documentElement.classList.remove('dark');
-                }
-            }, [isDarkMode]);
-
-            useEffect(() => {
-                const urlParams = new URLSearchParams(window.location.search);
-                const projectId = urlParams.get('project');
-                const mode = urlParams.get('mode');
-
-                if (projectId) {
-                    const projectToView = projects.find(p => p.id === projectId);
-                    if (projectToView) {
-                        setPublicProject(projectToView);
-                        setPublicAccessMode(mode === 'edit' ? 'edit' : 'view');
+                    return await apiCall();
+                } catch (error) {
+                    if (attempt === maxRetries - 1) throw error;
+                    
+                    if (error.message.includes('429')) {
+                        // Rate limit hit - warte länger
+                        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+                        console.warn(`Rate limit erreicht, warte ${Math.round(delay)}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error; // Andere Fehler sofort weiterwerfen
                     }
                 }
-            }, [projects]);
+            }
+        };
 
-
-            const handleLogout = async () => {
-                await window.firebase.signOut(window.firebase.auth);
-                setActiveAuthPage('landing');
-            };
-
-            const handleCreateProject = (name) => {
-                const newProject = {
-                    id: `proj_${Date.now()}`,
-                    name,
-                    files: [],
-                    moodboards: [{ id: `mood_${Date.now()}`, title: 'Neues Moodboard', items: [] }],
-                    taskboards: [{ id: `task_${Date.now()}`, title: 'Neues Taskboard', sections: [{ id: 'sec_1', title: 'To Do', tasks: [] }, { id: 'sec_2', title: 'In Progress', tasks: [] }, { id: 'sec_3', title: 'Done', tasks: [] }] }]
-                };
-                setProjects(prev => [...prev, newProject]);
-            };
+        // Sichere API-Request-Funktion mit DoS-Schutz
+        const safeApiRequest = async (url, options = {}, timeout = 15000) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
             
-            const handleUpdateProject = (updatedProject) => {
-                setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
-                if (publicProject && publicProject.id === updatedProject.id) {
-                    setPublicProject(updatedProject);
-                }
-            };
-
-            const addActivity = (newActivity) => {
-                setActivities(prev => [{...newActivity, id: Date.now()}, ...prev]);
-            };
-
-            const AppFooter = () => {
-                const currentYear = new Date().getFullYear();
-                return (
-                    <footer className="glass-pane mt-auto py-4 px-4 sm:px-6 lg:px-8">
-                        <div className="max-w-screen-xl mx-auto flex justify-between items-center text-sm text-gray-400">
-                            <div>
-                                &copy; {currentYear} We make IT work
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => setIsDarkMode(!isDarkMode)}
-                                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none ${isDarkMode ? 'bg-blue-600' : 'bg-gray-400'}`}
-                                >
-                                    <span
-                                        className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out ${isDarkMode ? 'translate-x-6' : 'translate-x-1'}`}
-                                    />
-                                </button>
-                            </div>
-                        </div>
-                    </footer>
-                );
-            };
-
-            const AppContent = () => {
-                if (publicProject) {
-                    return <ProjectDetailPage project={publicProject} setProjectData={handleUpdateProject} onBack={() => {
-                        // Clean URL and state
-                        window.history.pushState({}, '', window.location.pathname);
-                        setPublicProject(null);
-                    }} accessMode={publicAccessMode} />;
-                }
-            
-                if (!user) {
-                    switch (activeAuthPage) {
-                        case 'login': return <LoginPage setActiveAuthPage={setActiveAuthPage} />;
-                        case 'register': return <RegisterPage setActiveAuthPage={setActiveAuthPage} />;
-                        case 'forgot': return <ForgotPasswordPage setActiveAuthPage={setActiveAuthPage} />;
-                        default: return <LandingPage setActiveAuthPage={setActiveAuthPage} />;
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                    headers: {
+                        'User-Agent': 'MusikPlattform-Frontend/1.0',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...options.headers
                     }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    if (response.status === 429) {
+                        const retryAfter = response.headers.get('Retry-After') || '60';
+                        throw new Error(`429 Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                const selectedProject = projects.find(p => p.id === selectedProjectId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timeout');
+                }
+                throw error;
+            }
+        };
 
-                const pages = {
-                    dashboard: <MainDashboard setActivePage={setActivePage} activities={activities} complyCheckScore={complyCheckScore} />,
-                    projects: selectedProjectId && selectedProject ? 
-                        <ProjectDetailPage project={selectedProject} setProjectData={(data) => handleUpdateProject(data)} onBack={() => setSelectedProjectId(null)} /> : 
-                        <ProjectListPage projects={projects} setProjects={setProjects} onSelectProject={setSelectedProjectId} onCreateProject={handleCreateProject} />,
-                    analytics: <AnalyticsPage />,
-                    library: <LibraryPage />,
-                    support: <SupportPage />,
-                    learningcenter: <LearningCenter />,
-                    complycheck: <ComplyCheckPage onTestComplete={setComplyCheckScore} />,
-                    profile: <ProfilePage setActivePage={setActivePage} />,
-                };
+        // Request-Queue für sequenzielle API-Calls
+        class RequestQueue {
+            constructor(maxConcurrent = 3) {
+                this.queue = [];
+                this.running = 0;
+                this.maxConcurrent = maxConcurrent;
+            }
 
-                const navItems = [
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'projects', label: 'Projekte' },
-                    { id: 'analytics', label: 'Analytics' },
-                    { id: 'library', label: 'SmartLibrary' },
-                    { id: 'support', label: 'SupportHub' },
-                    { id: 'learningcenter', label: 'Learning Center' },
-                    { id: 'complycheck', label: 'ComplyCheck' },
-                    { id: 'profile', label: 'Profil' },
-                ];
+            async add(requestFn) {
+                return new Promise((resolve, reject) => {
+                    this.queue.push({ requestFn, resolve, reject });
+                    this.process();
+                });
+            }
 
-                return (
-                    <div className="min-h-screen flex flex-col">
-                        <nav className="glass-pane sticky top-0 z-20">
-                            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
-                                <div className="flex items-center justify-between h-[150px]" style={{ minHeight: '150px' }}>
-                                    <div className="flex items-center">
-                                        <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="h-[150px] w-[150px] object-contain" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/150x150/ffffff/000000?text=Logo'; }} />
-                                    </div>
-                                    <div className="hidden md:block">
-                                        <div className="ml-10 flex items-baseline space-x-1">
-                                            {navItems.map(item => (
-                                                <button key={item.id} onClick={() => { setActivePage(item.id); if (item.id !== 'projects') setSelectedProjectId(null); }} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activePage === item.id ? 'bg-white/20 text-white' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}>{item.label}</button>
-                                            ))}
-                                            <button onClick={handleLogout} className="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white flex items-center"><Icon name="logOut" className="w-4 h-4 mr-2" /> Abmelden</button>
-                                        </div>
-                                    </div>
-                                    <div className="md:hidden">
-                                        <button onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-300 hover:text-white">
-                                            <Icon name={isMobileMenuOpen ? "x" : "menu"} className="h-6 w-6" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            {isMobileMenuOpen && (
-                                <div className="md:hidden">
-                                    <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                                        {navItems.map(item => (
-                                            <button key={item.id} onClick={() => { setActivePage(item.id); setMobileMenuOpen(false); if (item.id !== 'projects') setSelectedProjectId(null); }} className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${activePage === item.id ? 'bg-white/20 text-white' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}>{item.label}</button>
-                                        ))}
-                                        <button onClick={handleLogout} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/10 hover:text-white">Abmelden</button>
-                                    </div>
-                                </div>
-                            )}
-                        </nav>
-                        <main className="flex-grow">
-                            {pages[activePage]}
-                        </main>
-                        <AppFooter />
-                    </div>
-                );
-            };
-            
-            return (
-                <DynamicGradientBackground>
-                    <AppContent />
-                </DynamicGradientBackground>
-            );
+            async process() {
+                if (this.running >= this.maxConcurrent || this.queue.length === 0) {
+                    return;
+                }
+
+                this.running++;
+                const { requestFn, resolve, reject } = this.queue.shift();
+
+                try {
+                    const result = await requestFn();
+                    resolve(result);
+                } catch (error) {
+                    reject(error);
+                } finally {
+                    this.running--;
+                    this.process(); // Process next item
+                }
+            }
         }
 
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
-        root.render(
-            <AuthProvider>
-                <App />
-            </AuthProvider>
-        );
+        // Globale Request-Queue
+        const apiQueue = new RequestQueue(2); // Max 2 gleichzeitige API-Calls
     </script>
 </body>
 </html>
