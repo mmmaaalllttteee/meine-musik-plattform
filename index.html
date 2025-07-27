@@ -3,20 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com https://www.gstatic.com 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' https: data:; font-src 'self' data:;">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <title>Plattform-Vorschau</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="config.js"></script>
     
     <!-- Firebase SDKs -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app-check.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { 
             getAuth, 
             onAuthStateChanged,
@@ -26,47 +21,38 @@
             sendPasswordResetEmail,
             updateProfile,
             updatePassword
-        } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // It is recommended to store API keys in environment variables
-        // and not directly in the code.
+        // Deine Firebase-Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
+            authDomain: "meine-musikplattform.firebaseapp.com",
+            projectId: "meine-musikplattform",
+            storageBucket: "meine-musikplattform.appspot.com",
+            messagingSenderId: "997469107237",
+            appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
+            measurementId: "G-7M62EV7KQH"
+        };
         
         // Firebase App initialisieren und global verfügbar machen
         let app;
         try {
-            app = initializeApp(window.firebaseConfig);
-            const appCheck = initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider('6Ld-5J4pAAAAAP0gJ9Vf7q4j_rde_g-4-3f-3P-Z'),
-                isTokenAutoRefreshEnabled: true
-            });
+            app = initializeApp(firebaseConfig);
         } catch (e) {
             console.error("Firebase initialization error:", e);
         }
         
         const auth = getAuth(app);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
         
         window.firebase = {
             auth,
-            db,
-            storage,
-            collection,
-            getDocs,
-            doc,
-            getDoc,
             onAuthStateChanged,
             createUserWithEmailAndPassword,
             signInWithEmailAndPassword,
             signOut,
             sendPasswordResetEmail,
             updateProfile,
-            updatePassword,
-            ref,
-            uploadBytes,
-            getDownloadURL
+            updatePassword
         };
     </script>
     
@@ -152,10 +138,19 @@
             );
         };
 
-        // --- ASSETS ---
+        // --- MOCK DATA & ASSETS ---
         const platformLogos = { 'Instagram': 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png', 'Spotify': 'https://upload.wikimedia.org/wikipedia/commons/2/26/Spotify_logo_with_text.svg', 'Google Analytics 4': 'https://www.gstatic.com/analytics-suite/header/suite/v2/ic_analytics.svg', 'TikTok Organic': 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png', 'Facebook Ads': 'https://upload.wikimedia.org/wikipedia/commons/6/6c/Facebook_Ads_logo.svg', 'Stripe': 'https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg' };
         const kpiLabels = { total_followers: 'Follower insgesamt', reel_views: 'Reel Aufrufe', total_users: 'Nutzer insgesamt', engagement_rate: 'Engagement-Rate' };
         const availablePlatforms = [ { id: 'google_analytics_4', name: 'Google Analytics 4' }, { id: 'instagram', name: 'Instagram' }, { id: 'tiktok_organic', name: 'TikTok Organic' }, { id: 'facebook_ads', name: 'Facebook Ads' }, { id: 'stripe', name: 'Stripe' } ];
+        const mockIntegrations = { 'int_ga4_123': { id: 'int_ga4_123', platform: 'Google Analytics 4', accountName: 'Mein Online-Shop', status: 'connected' }, 'int_ig_456': { id: 'int_ig_456', platform: 'Instagram', accountName: '@neondreams_band', status: 'connected' }, 'int_tiktok_789': { id: 'int_tiktok_789', platform: 'TikTok Organic', accountName: 'neondreams_official', status: 'pending' } };
+        const mockDashboards = [ { id: 'dash_1', name: 'Album Release "Neon Dreams" - Performance', logoUrl: 'https://placehold.co/100x40/1a1a1a/ffffff?text=ND', widgets: [ { id: 'w1', integrationId: 'int_ig_456', kpi: 'total_followers', timeFrame: 'last_30_days', w: 4, h: 2 }, { id: 'w2', integrationId: 'int_ig_456', kpi: 'reel_views', timeFrame: 'last_7_days', w: 4, h: 2 }, { id: 'w3', integrationId: 'int_ga4_123', kpi: 'total_users', timeFrame: 'last_30_days', w: 4, h: 2 }, { id: 'w4', integrationId: 'int_ga4_123', kpi: 'engagement_rate', timeFrame: 'last_30_days', w: 8, h: 2 } ] } ];
+        const mockDashboardData = { keyKpis: [ { platform: 'Instagram', kpi: 'Follower insgesamt', value: '48.152', change: 1.2 }, { platform: 'Spotify', kpi: 'Monatliche Hörer', value: '1.2M', change: 5.3 }, { platform: 'Google Analytics 4', kpi: 'Nutzer (letzte 7 Tage)', value: '12.830', change: -2.1 } ], learningProgress: { pathTitle: 'Onboarding für neue Künstler:innen', progress: 75 }};
+        const initialProjects = [
+            { id: 'proj_1', name: 'Album Release "Neon Dreams"', files: [], moodboards: [ { id: 'mood_1', title: 'Cover Artwork & Visuals', items: [ { id: 'item_1', type: 'image', content: 'https://placehold.co/600x400/1a1a1a/ffffff?text=Inspiration+1', x: 50, y: 50, w: 250, h: 180 }, { id: 'item_2', type: 'text', content: 'Key Words: Retro, 80s, Chrome, Sunset', x: 350, y: 80, w: 200, h: 100 }, { id: 'item_3', type: 'image', content: 'https://placehold.co/600x400/4a4a4a/ffffff?text=Inspiration+2', x: 80, y: 280, w: 300, h: 200 }, { id: 'item_4', type: 'video', content: 'Video-Referenz', x: 420, y: 250, w: 220, h: 150 } ] } ], taskboards: [ { id: 'task_1', title: 'Marketing & PR Plan', sections: [ { id: 'sec_1', title: 'To Do', tasks: [ { id: 't_1', title: 'Pressemitteilung entwerfen', priority: 'high', assignee: 'Anna', dueDate: '2025-08-15', completed: false }, { id: 't_2', title: 'Social Media Grafiken erstellen', priority: 'medium', assignee: 'Max', dueDate: '2025-08-20', completed: false } ] }, { id: 'sec_2', title: 'In Progress', tasks: [ { id: 't_3', title: 'Interview-Partner anfragen', priority: 'high', assignee: 'Anna', completed: false } ] }, { id: 'sec_3', title: 'Done', tasks: [ { id: 't_4', title: 'Marketing-Budget finalisieren', priority: 'medium', assignee: 'Chris', dueDate: '2025-07-20', completed: true } ] } ] } ] }
+        ];
+        const mockCmsData = { data: [ { id: 1, title: "Bandübernahmevertrag (Standard)", description: "Ein Standardvertrag zur Übertragung der Master-Rechte.", category: "Verträge", files: { docx: "#", pdf: "#" }, tags: ["Recording", "Rechte", "Label"] }, { id: 2, title: "Booking-Anfrage (Vorlage)", description: "Vorlage für Anfragen an Veranstalter.", category: "Booking", files: { docx: "#" }, tags: ["Live", "Konzert"] }, { id: 3, title: "Pressekit-Checkliste", description: "Alle wichtigen Inhalte für ein Pressekit.", category: "Best Practices", files: { pdf: "#", notion: "#" }, tags: ["PR", "Marketing", "EPK"] } ] };
+        const mockKnowledgeBase = { data: [ { id: 'kb-1', title: "Wie richte ich mein E-Mail-Konto ein?", category: "Setup", tags: ["email", "mdm"] }, { id: 'kb-2', title: "Was ist ein AV-Vertrag?", category: "DSGVO", tags: ["datenschutz", "vertrag"] }, { id: 'kb-3', title: "Wie teile ich ein Moodboard?", category: "Kollaboration", tags: ["moodboard", "sharing"] } ] };
+        const mockLearningPaths = [ { id: 'lp1', title: "Onboarding für neue Künstler:innen", description: "Alle Grundlagen für einen erfolgreichen Start.", targetRole: "Künstler", modules: [ { id: 'm1-1', title: "Willkommen im Team!", type: 'video' }, { id: 'm1-2', title: "Unsere Kommunikations-Tools", type: 'text', content: 'Wir nutzen Slack für die tägliche Kommunikation und Asana für das Projektmanagement...' }, { id: 'm1-3', title: "Grundlagen der GEMA-Meldung", type: 'text', content: 'Jeder Live-Auftritt muss gemeldet werden...' }, { id: 'm1-4', title: "Wissens-Check: Kommunikation", type: 'quiz', content: { question: "Welches Tool nutzen wir für das Projektmanagement?", options: ["Slack", "Asana", "Trello"], correctAnswerIndex: 1 }} ] }, { id: 'lp2', title: "Einführung für Freelance-Booker", description: "So arbeitest du effektiv mit uns.", targetRole: "Freelancer", modules: [ { id: 'm2-1', title: "Übersicht unserer Künstler-Roster", type: 'text' }, { id: 'm2-2', title: "Der Booking-Prozess", type: 'video' }, { id: 'm2-3', title: "Wissens-Check: Verträge", type: 'quiz', content: { question: "Wo findest du die Vertragsvorlagen?", options: ["Google Drive", "SmartLibrary"], correctAnswerIndex: 1 }} ] } ];
         const dsgvoQuestions = [ { id: 'q1', text: "Führst du ein Verzeichnis von Verarbeitungstätigkeiten (VVT)?" }, { id: 'q2', text: "Hast du eine Datenschutzerklärung auf deiner Webseite?" }, { id: 'q3', text: "Schließt du Auftragsverarbeitungs-Verträge (AVV) mit Dienstleistern ab?" } ];
         const priorityColors = { low: 'bg-green-500', medium: 'bg-yellow-500', high: 'bg-red-500' };
 
@@ -204,19 +199,6 @@
             return icons[name] || null;
         };
 
-        // --- Dark Mode Toggle Component ---
-        const DarkModeToggle = ({ darkMode, toggleDarkMode }) => {
-            return (
-                <button onClick={toggleDarkMode} className="flex items-center justify-center w-10 h-10 rounded-full glass-pane text-gray-300 hover:text-white transition">
-                    {darkMode ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                    )}
-                </button>
-            );
-        };
-
         // --- PAGE COMPONENTS ---
         const PageWrapper = ({ children }) => (
             <div className="p-4 sm:p-6 lg:p-8 font-sans">
@@ -227,23 +209,39 @@
         );
         
         // --- LandingPage Component ---
-        const LandingPage = ({ setActiveAuthPage, darkMode, toggleDarkMode }) => {
-            const [content, setContent] = useState({ hero: { title: '', subtitle: '' }, features: [] });
-
-            useEffect(() => {
-                const fetchContent = async () => {
-                    try {
-                        const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
-                        const docSnap = await window.firebase.getDoc(docRef);
-                        if (docSnap.exists()) {
-                            setContent(docSnap.data());
-                        }
-                    } catch (error) {
-                        console.error("Error fetching landing page content:", error);
-                    }
-                };
-                fetchContent();
-            }, []);
+        const LandingPage = ({ setActiveAuthPage }) => {
+            const features = [
+                {
+                    icon: "barChart",
+                    title: "Zentrales Analytics-Dashboard",
+                    description: "Verbinde all deine Plattformen und behalte den Überblick über deine wichtigsten Kennzahlen an einem Ort."
+                },
+                {
+                    icon: "users",
+                    title: "Kollaborative Projekte",
+                    description: "Plane Kampagnen mit Moodboards, Aufgaben und geteilten Dateien. Lade Dritte zur Ansicht oder Bearbeitung ein."
+                },
+                {
+                    icon: "zap",
+                    title: "KI-gestützter Assistent",
+                    description: "Erhalte sofortige Antworten und Strategien zu Musikmarketing, Veröffentlichungen und mehr von deinem persönlichen Experten."
+                },
+                {
+                    icon: "bookOpen",
+                    title: "Smart Library",
+                    description: "Greife auf eine kuratierte Sammlung von Vorlagen, Verträgen und Best Practices für das Musikbusiness zu."
+                },
+                {
+                    icon: "award",
+                    title: "Learning Center",
+                    description: "Erweitere dein Wissen mit geführten Lernpfaden, die speziell für Künstler und ihre Teams entwickelt wurden."
+                },
+                {
+                    icon: "uploadCloud",
+                    title: "Dateien & Freigaben",
+                    description: "Verwalte all deine Projektdateien zentral und teile sie sicher mit externen Partnern über Links."
+                }
+            ];
 
             return (
                 <div className="text-gray-100">
@@ -251,7 +249,7 @@
                     <header className="sticky top-0 glass-pane z-10">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div className="flex justify-between items-center py-4">
-                                <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" style={{ height: '150px', width: '150px' }} onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/150x150/ffffff/000000?text=Logo'; }} />
+                                <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="h-10" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/120x40/ffffff/000000?text=Logo'; }} />
                                 <button onClick={() => setActiveAuthPage('login')} className="glass-pane px-4 py-2 rounded-lg text-sm font-bold text-shadow hover:bg-white/20 transition">Login</button>
                             </div>
                         </div>
@@ -263,11 +261,11 @@
                             <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-24 sm:py-32">
                                 <div className="relative px-4 py-16 sm:px-6 sm:py-24 lg:py-32 lg:px-8 text-center">
                                     <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-shadow">
-                                        <span className="block text-white">{content.hero.title.split('\n')[0]}</span>
-                                        <span className="block text-indigo-200">{content.hero.title.split('\n')[1]}</span>
+                                        <span className="block text-white">Dein Betriebssystem</span>
+                                        <span className="block text-indigo-200">für das Musikbusiness</span>
                                     </h1>
                                     <p className="mt-6 max-w-lg mx-auto text-xl text-indigo-100 sm:max-w-3xl text-shadow">
-                                        {content.hero.subtitle}
+                                        Von Analytics über Projektmanagement bis hin zu KI-gestützter Beratung – alles, was du für deinen Erfolg brauchst.
                                     </p>
                                     <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
                                         <button onClick={() => setActiveAuthPage('register')} className="bg-white/90 text-blue-900 font-bold text-lg px-8 py-3 rounded-lg shadow-lg hover:bg-white transition">
@@ -288,7 +286,7 @@
                                     </p>
                                 </div>
                                 <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                                    {content.features.map((feature) => (
+                                    {features.map((feature) => (
                                         <div key={feature.title} className="glass-pane p-6 rounded-2xl shadow-lg">
                                             <div className="flex-shrink-0">
                                                 <Icon name={feature.icon} className="h-8 w-8 text-indigo-300" />
@@ -305,9 +303,6 @@
                     {/* Footer */}
                     <footer className="">
                         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
-                            <div className="flex justify-center space-x-6 md:order-2">
-                                <DarkModeToggle darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-                            </div>
                             <div className="mt-8 md:mt-0 md:order-1">
                                 <p className="text-center text-base text-gray-400">&copy; 2025 Plattform. Alle Rechte vorbehalten.</p>
                             </div>
@@ -320,47 +315,9 @@
         // --- MainDashboard Component ---
         const MainDashboard = ({setActivePage, activities, complyCheckScore}) => {
             const { user } = useAuth();
-            const [dashboardData, setDashboardData] = useState({ keyKpis: [], learningProgress: {} });
+            const data = mockDashboardData;
             const [searchTerm, setSearchTerm] = useState("");
             const [searchResults, setSearchResults] = useState([]);
-            const [news, setNews] = useState([]);
-            const [knowledgeBase, setKnowledgeBase] = useState([]);
-
-            useEffect(() => {
-                const fetchDashboardData = async () => {
-                    try {
-                        const docRef = window.firebase.doc(window.firebase.db, "dashboard", "main");
-                        const docSnap = await window.firebase.getDoc(docRef);
-                        if (docSnap.exists()) {
-                            setDashboardData(docSnap.data());
-                        }
-                    } catch (error) {
-                        console.error("Error fetching dashboard data:", error);
-                    }
-                };
-
-                const fetchNews = async () => {
-                    try {
-                        const newsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "news"));
-                        setNews(newsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } catch (error) {
-                        console.error("Error fetching news:", error);
-                    }
-                };
-
-                const fetchKnowledgeBase = async () => {
-                    try {
-                        const kbCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
-                        setKnowledgeBase(kbCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } catch (error) {
-                        console.error("Error fetching knowledge base:", error);
-                    }
-                };
-
-                fetchDashboardData();
-                fetchNews();
-                fetchKnowledgeBase();
-            }, []);
 
             const handleSearch = (e) => {
                 const term = e.target.value;
@@ -369,7 +326,7 @@
                     setSearchResults([]);
                     return;
                 }
-                const results = knowledgeBase.filter(article =>
+                const results = mockKnowledgeBase.data.filter(article => 
                     article.title.toLowerCase().includes(term.toLowerCase()) ||
                     article.category.toLowerCase().includes(term.toLowerCase())
                 );
@@ -404,29 +361,10 @@
                 <PageWrapper>
                     <WelcomeHeader user={user} />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {dashboardData.keyKpis.map((kpi) => <div key={kpi.platform} className="lg:col-span-1"><KpiWidget kpi={kpi} /></div>)}
+                        {data.keyKpis.map((kpi) => <div key={kpi.platform} className="lg:col-span-1"><KpiWidget kpi={kpi} /></div>)}
                         <div className="md:col-span-2 lg:col-span-2 grid grid-cols-2 gap-6"><QuickAccessWidget title="Projekte" icon="briefcase" pageId="projects" /><QuickAccessWidget title="Vorlagen" icon="fileText" pageId="library" /></div>
                         <div className="md:col-span-2 lg:col-span-2 row-span-2"><RecentActivityWidget activities={activities} /></div>
-                        <div className="md:col-span-1 lg:col-span-1"><LearningProgressWidget learning={dashboardData.learningProgress} /></div>
-                        <div className="md:col-span-2 lg:col-span-2 row-span-2 glass-pane p-6 rounded-2xl">
-                            <h3 className="font-bold text-lg mb-4 text-shadow">News</h3>
-                            <div className="space-y-4">
-                                {news.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()).map(article => (
-                                    <div key={article.id} className="flex gap-4">
-                                        {article.imageUrl && <img src={article.imageUrl} className="w-24 h-24 object-cover rounded-lg" />}
-                                        <div>
-                                            <h4 className="font-bold">{article.title}</h4>
-                                            <p className="text-sm text-gray-300 mt-1">{article.text}</p>
-                                            {article.ctaText && article.ctaLink && (
-                                                <a href={article.ctaLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 bg-blue-500 text-white px-3 py-1 rounded-md text-sm">
-                                                    {article.ctaText}
-                                                </a>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <div className="md:col-span-1 lg:col-span-1"><LearningProgressWidget learning={data.learningProgress} /></div>
                         <div className="md:col-span-1 lg:col-span-1 grid grid-cols-1 gap-6">
                             <div className="glass-pane p-6 rounded-2xl">
                                 <h3 className="font-bold text-lg mb-3 text-shadow">Support Hub</h3>
@@ -822,39 +760,20 @@
         const AnalyticsPage = () => {
             const [dashboard, setDashboard] = useState(null);
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [integrations, setIntegrations] = useState({ available: [], connected: [] });
-
             useEffect(() => {
-                const fetchData = async () => {
-                    try {
-                        const [integrationsSnap, dashboardSnap] = await Promise.all([
-                            window.firebase.getDocs(window.firebase.collection(window.firebase.db, "integrations")),
-                            window.firebase.getDoc(window.firebase.doc(window.firebase.db, "dashboards", "main"))
-                        ]);
-
-                        const connectedIntegrations = integrationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setIntegrations({ available: availablePlatforms, connected: connectedIntegrations });
-
-                        if (dashboardSnap.exists()) {
-                            const dashboardData = dashboardSnap.data();
-                            const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: connectedIntegrations.find(i => i.id === widget.integrationId) }));
-                            setDashboard({ ...dashboardData, widgets: populatedWidgets });
-                        }
-                    } catch (error) {
-                        console.error("Error fetching analytics data:", error);
-                    }
-                };
-                fetchData();
+                const dashboardData = mockDashboards[0];
+                const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: mockIntegrations[widget.integrationId] }));
+                setDashboard({ ...dashboardData, widgets: populatedWidgets });
             }, []);
-
             if (!dashboard) return <PageWrapper><div>Lade...</div></PageWrapper>;
-
             const KpiWidget = ({ widget }) => {
                 const value = Math.floor(Math.random() * 50000) + 1000;
                 const change = (Math.random() * 10 - 5).toFixed(1);
                 return (<div className="glass-pane p-4 flex flex-col h-full rounded-2xl"><div className="flex justify-between items-start mb-2"><div className="flex items-center gap-2"><img src={platformLogos[widget.integration.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-5 h-5 object-contain rounded-md" /><span className="text-sm font-medium text-gray-300 text-shadow">{kpiLabels[widget.kpi]}</span></div><button className="text-gray-400"><Icon name="moreVertical" className="w-4 h-4" /></button></div><div className="flex-grow flex flex-col justify-center"><p className="text-3xl lg:text-4xl font-bold text-shadow">{value.toLocaleString('de-DE')}</p><div className={`text-sm font-semibold flex items-center ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>{change >= 0 ? '▲' : '▼'} {change}%</div></div><div className="text-xs text-gray-400 mt-2 flex items-center gap-1"><Icon name="clock" className="w-3 h-3" /><span>{widget.timeFrame.replace(/_/g, ' ')}</span></div></div>);
             };
             const IntegrationsModal = ({ onClose }) => {
+                const [integrations, setIntegrations] = useState({ available: [], connected: [] });
+                useEffect(() => { setIntegrations({ available: availablePlatforms, connected: Object.values(mockIntegrations) }); }, []);
                 return (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}><div className="glass-pane rounded-2xl w-full max-w-2xl text-white" onClick={e => e.stopPropagation()}><div className="p-6 border-b border-white/20"><h2 className="text-xl font-bold text-shadow">Integrationen verwalten</h2></div><div className="p-6 max-h-[80vh] overflow-y-auto"><h3 className="font-semibold mb-3 text-shadow">Verbundene Konten</h3><div className="space-y-3 mb-8">{integrations.connected.map(int => (<div key={int.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg"><div className="flex items-center gap-3"><img src={platformLogos[int.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-6 h-6 object-contain rounded" /><div><p className="font-semibold text-shadow">{int.platform}</p><p className="text-sm text-gray-300">{int.accountName}</p></div></div><div className="flex items-center gap-3">{int.status === 'connected' ? <Icon name="checkCircle" className="w-5 h-5 text-green-400" /> : <Icon name="xCircle" className="w-5 h-5 text-red-400" />}<button><Icon name="trash2" className="w-4 h-4 text-gray-400 hover:text-red-400" /></button></div></div>))}</div><h3 className="font-semibold mb-3 text-shadow">Neue Integration hinzufügen</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{integrations.available.map(p => (<button key={p.id} className="flex items-center gap-3 p-3 border border-white/20 rounded-lg hover:bg-white/10"><img src={platformLogos[p.name]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-6 h-6 object-contain rounded" /><span className="font-semibold text-shadow">Mit {p.name} verbinden</span></button>))}</div></div></div></div>);
             };
             return (
@@ -877,24 +796,10 @@
             const [templates, setTemplates] = useState([]);
             const [searchTerm, setSearchTerm] = useState('');
             const [activeCategory, setActiveCategory] = useState('Alle');
-
-            useEffect(() => {
-                const fetchTemplates = async () => {
-                    try {
-                        const templatesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "smartLibrary"));
-                        setTemplates(templatesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } catch (error) {
-                        console.error("Error fetching templates:", error);
-                    }
-                };
-                fetchTemplates();
-            }, []);
-
+            useEffect(() => { setTemplates(mockCmsData.data); }, []);
             const categories = useMemo(() => ['Alle', ...new Set(templates.map(t => t.category))], [templates]);
             const filteredTemplates = useMemo(() => templates.filter(template => (activeCategory === 'Alle' || template.category === activeCategory) && (searchTerm === '' || template.title.toLowerCase().includes(searchTerm.toLowerCase()))), [templates, searchTerm, activeCategory]);
-
-            const DownloadButton = ({ url }) => (<a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center bg-white/10 text-xs font-bold px-3 py-1 rounded-full hover:bg-white/20"><Icon name="download" className="w-4 h-4 mr-2" />Download</a>);
-
+            const DownloadButton = ({ url, format }) => (<a href={url} className="inline-flex items-center bg-white/10 text-xs font-bold px-3 py-1 rounded-full hover:bg-white/20"><Icon name={format === 'pdf' ? 'fileText' : 'file'} className="w-4 h-4 mr-2" />{format.toUpperCase()}</a>);
             return (
                 <PageWrapper>
                     <header className="mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">Smart Library</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Vorlagen, Verträge und Best Practices.</p></header>
@@ -902,7 +807,7 @@
                         <div className="relative flex-grow"><Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /><input type="text" placeholder="Suchen..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400" /></div>
                         <div className="flex-shrink-0 bg-black/20 p-1 rounded-lg border border-white/20 overflow-x-auto"><div className="flex">{categories.map(cat => (<button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-1 text-sm font-medium rounded-md whitespace-nowrap ${activeCategory === cat ? 'bg-blue-500 text-white' : 'text-gray-300 hover:text-white'}`}>{cat}</button>))}</div></div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredTemplates.map(template => (<div key={template.id} className="glass-pane p-6 rounded-2xl flex flex-col"><h3 className="text-lg font-bold text-shadow">{template.title}</h3><p className="text-sm text-gray-300 mt-2 flex-grow text-shadow">{template.description}</p><div className="border-t border-white/20 mt-4 pt-4 flex justify-between items-center"><span className="text-sm font-semibold text-gray-400">{template.category}</span><div className="flex gap-2">{template.fileUrl && <DownloadButton url={template.fileUrl} />}</div></div></div>))}</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredTemplates.map(template => (<div key={template.id} className="glass-pane p-6 rounded-2xl flex flex-col"><h3 className="text-lg font-bold text-shadow">{template.title}</h3><p className="text-sm text-gray-300 mt-2 flex-grow text-shadow">{template.description}</p><div className="border-t border-white/20 mt-4 pt-4 flex justify-between items-center"><span className="text-sm font-semibold text-gray-400">{template.category}</span><div className="flex gap-2">{template.files.docx && <DownloadButton url={template.files.docx} format="docx" />}{template.files.pdf && <DownloadButton url={template.files.pdf} format="pdf" />}</div></div></div>))}</div>
                 </PageWrapper>
             );
         };
@@ -912,17 +817,7 @@
             const [activeTab, setActiveTab] = useState('assistant');
             const KnowledgeBaseView = () => {
                 const [articles, setArticles] = useState([]);
-                useEffect(() => {
-                    const fetchArticles = async () => {
-                        try {
-                            const articlesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
-                            setArticles(articlesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                        } catch (error) {
-                            console.error("Error fetching articles:", error);
-                        }
-                    };
-                    fetchArticles();
-                }, []);
+                useEffect(() => { setArticles(mockKnowledgeBase.data); }, []);
                 return (<div className="space-y-4">{articles.map(article => (<div key={article.id} className="glass-pane p-4 rounded-2xl"><h3 className="font-bold text-shadow">{article.title}</h3><p className="text-sm text-gray-300 mt-1">{article.category}</p></div>))}</div>);
             };
             const AssistantView = () => {
@@ -948,9 +843,7 @@
                         const prompt = `Du bist ein Experte für das Musikbusiness und agierst als hilfsbereiter Assistent. Deine Aufgabe ist es, Fragen rund um Musikveröffentlichungen, Kampagnenkonzepte, Marketingstrategien und allgemeine Branchenkenntnisse zu beantworten. Gib klare, strukturierte und umsetzbare Ratschläge. Antworte auf Deutsch. Frage des Nutzers: "${userMessage.text}"`;
                         
                         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                        // It is recommended to store API keys in environment variables
-                        // and not directly in the code.
-                        const apiKey = window.geminiApiKey;
+                        const apiKey = "";
                         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
                         const response = await fetch(apiUrl, {
@@ -1022,17 +915,7 @@
         const LearningCenter = () => {
             const [paths, setPaths] = useState([]);
             const [selectedPath, setSelectedPath] = useState(null);
-            useEffect(() => {
-                const fetchPaths = async () => {
-                    try {
-                        const pathsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "learningCenter"));
-                        setPaths(pathsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } catch (error) {
-                        console.error("Error fetching learning paths:", error);
-                    }
-                };
-                fetchPaths();
-            }, []);
+            useEffect(() => { setPaths(mockLearningPaths); }, []);
             const LearningPathDetail = ({ path, onBack }) => {
                 const [completedModules, setCompletedModules] = useState(['m1-1']);
                 const [activeModule, setActiveModule] = useState(path.modules[0]);
@@ -1258,30 +1141,10 @@
             const [activePage, setActivePage] = useState('dashboard');
             const [activeAuthPage, setActiveAuthPage] = useState('landing');
             const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-            const [projects, setProjects] = useState([]);
+            const [projects, setProjects] = useState(initialProjects);
             const [selectedProjectId, setSelectedProjectId] = useState(null);
             const [activities, setActivities] = useState([]);
             const [complyCheckScore, setComplyCheckScore] = useState("N/A");
-            const [darkMode, setDarkMode] = useState(true);
-
-            useEffect(() => {
-                const fetchProjects = async () => {
-                    try {
-                        const projectsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "projects"));
-                        setProjects(projectsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } catch (error) {
-                        console.error("Error fetching projects:", error);
-                    }
-                };
-                if (user) {
-                    fetchProjects();
-                }
-            }, [user]);
-
-            const toggleDarkMode = () => {
-                setDarkMode(prev => !prev);
-                document.documentElement.classList.toggle('dark');
-            };
             
             // Public project view state
             const [publicProject, setPublicProject] = useState(null);
@@ -1343,7 +1206,7 @@
                         case 'login': return <LoginPage setActiveAuthPage={setActiveAuthPage} />;
                         case 'register': return <RegisterPage setActiveAuthPage={setActiveAuthPage} />;
                         case 'forgot': return <ForgotPasswordPage setActiveAuthPage={setActiveAuthPage} />;
-                        default: return <LandingPage setActiveAuthPage={setActiveAuthPage} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+                        default: return <LandingPage setActiveAuthPage={setActiveAuthPage} />;
                     }
                 }
                 
@@ -1374,12 +1237,12 @@
                 ];
 
                 return (
-                    <div className="min-h-screen flex flex-col">
+                    <div className="min-h-screen">
                         <nav className="glass-pane sticky top-0 z-20">
                             <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
                                 <div className="flex items-center justify-between h-16">
                                     <div className="flex items-center">
-                                        <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" style={{ height: '150px', width: '150px' }} onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/150x150/ffffff/000000?text=Logo'; }} />
+                                        <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="h-10" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/120x40/ffffff/000000?text=Logo'; }} />
                                     </div>
                                     <div className="hidden md:block">
                                         <div className="ml-10 flex items-baseline space-x-1">
@@ -1407,15 +1270,9 @@
                                 </div>
                             )}
                         </nav>
-                        <main className="flex-grow">
+                        <main>
                             {pages[activePage]}
                         </main>
-                        <footer className="glass-pane">
-                            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-                                 <p className="text-sm text-gray-400">&copy; 2025 Plattform. Alle Rechte vorbehalten.</p>
-                                 <DarkModeToggle darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-                            </div>
-                        </footer>
                     </div>
                 );
             }
@@ -1437,5 +1294,3 @@
     </script>
 </body>
 </html>
-
-[end of index.html]
