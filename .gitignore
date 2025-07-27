@@ -1,1 +1,13 @@
 config.js
+.env
+.env.local
+.env.production
+.env.staging
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+logs/
+*.log

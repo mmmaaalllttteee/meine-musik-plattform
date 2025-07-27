@@ -23,37 +23,67 @@
             updatePassword
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Deine Firebase-Konfiguration
-        const firebaseConfig = {
-            apiKey: "DEIN_FIREBASE_API_KEY", // SICHERHEITSHINWEIS: Ersetze diesen Platzhalter durch deinen echten API-Schlüssel. Gib deinen Schlüssel niemals öffentlich preis.
-            authDomain: "meine-musikplattform.firebaseapp.com",
-            projectId: "meine-musikplattform",
-            storageBucket: "meine-musikplattform.appspot.com",
-            messagingSenderId: "997469107237",
-            appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
-            measurementId: "G-7M62EV7KQH"
+        // Backend-API URL
+        const API_BASE_URL = window.location.hostname === 'localhost' ? 
+            'http://localhost:3001' : 
+            `${window.location.protocol}//${window.location.hostname}:3001`;
+
+        // Firebase sicher vom Backend laden
+        const initializeFirebase = async () => {
+            try {
+                console.log('Lade sichere Firebase-Konfiguration vom Server...');
+                
+                const response = await fetch(`${API_BASE_URL}/api/config/firebase`);
+                if (!response.ok) {
+                    throw new Error(`Server-Fehler: ${response.status}`);
+                }
+                
+                const firebaseConfig = await response.json();
+                console.log('Firebase-Konfiguration erhalten (ohne API-Schlüssel)');
+                
+                // Firebase App initialisieren und global verfügbar machen
+                let app;
+                try {
+                    app = initializeApp(firebaseConfig);
+                    console.log("✅ Firebase erfolgreich und sicher initialisiert");
+                } catch (e) {
+                    console.error("❌ Firebase initialization error:", e);
+                    return;
+                }
+                
+                const auth = getAuth(app);
+                
+                // Global verfügbar machen
+                window.firebase = {
+                    auth,
+                    onAuthStateChanged,
+                    createUserWithEmailAndPassword,
+                    signInWithEmailAndPassword,
+                    signOut,
+                    sendPasswordResetEmail,
+                    updateProfile,
+                    updatePassword
+                };
+
+                // Backend-API auch global verfügbar machen
+                window.apiConfig = {
+                    baseUrl: API_BASE_URL
+                };
+                
+                console.log("✅ Frontend-Backend-Verbindung etabliert");
+                
+            } catch (error) {
+                console.error("❌ Fehler beim Laden der Firebase-Konfiguration:", error);
+                alert('Fehler beim Verbinden mit dem Server. Bitte laden Sie die Seite neu.');
+            }
         };
-        
-        // Firebase App initialisieren und global verfügbar machen
-        let app;
-        try {
-            app = initializeApp(firebaseConfig);
-        } catch (e) {
-            console.error("Firebase initialization error:", e);
+
+        // Initialisiere Firebase nach dem Laden der Seite
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFirebase);
+        } else {
+            initializeFirebase();
         }
-        
-        const auth = getAuth(app);
-        
-        window.firebase = {
-            auth,
-            onAuthStateChanged,
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            signOut,
-            sendPasswordResetEmail,
-            updateProfile,
-            updatePassword
-        };
     </script>
     
     <style>
@@ -866,29 +896,45 @@
                     setIsLoading(true);
 
                     try {
-                        const prompt = `Du bist ein Experte für das Musikbusiness und agierst als hilfsbereiter Assistent. Deine Aufgabe ist es, Fragen rund um Musikveröffentlichungen, Kampagnenkonzepte, Marketingstrategien und allgemeine Branchenkenntnisse zu beantworten. Gib klare, strukturierte und umsetzbare Ratschläge. Antworte auf Deutsch. Frage des Nutzers: "${userMessage.text}"`;
-                        
-                        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                        const apiKey = "DEIN_GEMINI_API_KEY"; // SICHERHEITSHINWEIS: Ersetze diesen Platzhalter durch deinen echten API-Schlüssel. Gib deinen Schlüssel niemals öffentlich preis.
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                        // Sichere Backend-Kommunikation
+                        const apiConfig = window.apiConfig;
+                        if (!apiConfig) {
+                            throw new Error('Backend-Verbindung nicht verfügbar');
+                        }
 
-                        const response = await fetch(apiUrl, {
+                        const response = await fetch(`${apiConfig.baseUrl}/api/gemini/chat`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ message: userMessage.text })
                         });
 
-                        if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(errorData.error || `Server-Fehler: ${response.status}`);
+                        }
 
                         const result = await response.json();
-                        
-                        const botResponseText = result.candidates?.[0]?.content?.parts?.[0]?.text || "Entschuldigung, ich konnte keine Antwort generieren.";
+                        const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
                         
                         setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
 
                     } catch (error) {
-                        console.error("Error with Gemini API:", error);
-                        setChatHistory(prev => [...prev, { role: 'assistant', text: 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.' }]);
+                        console.error("Error with Backend API:", error);
+                        
+                        let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
+                        
+                        if (error.message.includes('Backend-Verbindung')) {
+                            errorMessage = 'Keine Verbindung zum Server. Bitte laden Sie die Seite neu.';
+                        } else if (error.message.includes('429')) {
+                            errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment.';
+                        } else if (error.message.includes('timeout')) {
+                            errorMessage = 'Anfrage-Timeout. Bitte versuchen Sie es erneut.';
+                        }
+                        
+                        setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
                     } finally {
                         setIsLoading(false);
                     }
