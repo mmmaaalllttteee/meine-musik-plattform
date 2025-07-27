@@ -26,15 +26,16 @@
         import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // Deine Firebase-Konfiguration
+        // It is recommended to store API keys in environment variables
+        // and not directly in the code.
         const firebaseConfig = {
-            apiKey: "AIzaSyDUGeLsuJgFfdK-JR7Uqh3GhSC6L9UW7JE",
-            authDomain: "meine-musikplattform.firebaseapp.com",
-            projectId: "meine-musikplattform",
-            storageBucket: "meine-musikplattform.appspot.com",
-            messagingSenderId: "997469107237",
-            appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
-            measurementId: "G-7M62EV7KQH"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
+            measurementId: "YOUR_MEASUREMENT_ID"
         };
         
         // Firebase App initialisieren und global verfügbar machen
@@ -42,7 +43,7 @@
         try {
             app = initializeApp(firebaseConfig);
             const appCheck = initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider('YOUR_RECAPTCHA_V3_SITE_KEY'),
+                provider: new ReCaptchaV3Provider('6Ld-5J4pAAAAAP0gJ9Vf7q4j_rde_g-4-3f-3P-Z'),
                 isTokenAutoRefreshEnabled: true
             });
         } catch (e) {
@@ -236,10 +237,14 @@
 
             useEffect(() => {
                 const fetchContent = async () => {
-                    const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
-                    const docSnap = await window.firebase.getDoc(docRef);
-                    if (docSnap.exists()) {
-                        setContent(docSnap.data());
+                    try {
+                        const docRef = window.firebase.doc(window.firebase.db, "landingPage", "main");
+                        const docSnap = await window.firebase.getDoc(docRef);
+                        if (docSnap.exists()) {
+                            setContent(docSnap.data());
+                        }
+                    } catch (error) {
+                        console.error("Error fetching landing page content:", error);
                     }
                 };
                 fetchContent();
@@ -328,21 +333,33 @@
 
             useEffect(() => {
                 const fetchDashboardData = async () => {
-                    const docRef = window.firebase.doc(window.firebase.db, "dashboard", "main");
-                    const docSnap = await window.firebase.getDoc(docRef);
-                    if (docSnap.exists()) {
-                        setDashboardData(docSnap.data());
+                    try {
+                        const docRef = window.firebase.doc(window.firebase.db, "dashboard", "main");
+                        const docSnap = await window.firebase.getDoc(docRef);
+                        if (docSnap.exists()) {
+                            setDashboardData(docSnap.data());
+                        }
+                    } catch (error) {
+                        console.error("Error fetching dashboard data:", error);
                     }
                 };
 
                 const fetchNews = async () => {
-                    const newsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "news"));
-                    setNews(newsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    try {
+                        const newsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "news"));
+                        setNews(newsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    } catch (error) {
+                        console.error("Error fetching news:", error);
+                    }
                 };
 
                 const fetchKnowledgeBase = async () => {
-                    const kbCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
-                    setKnowledgeBase(kbCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    try {
+                        const kbCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
+                        setKnowledgeBase(kbCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    } catch (error) {
+                        console.error("Error fetching knowledge base:", error);
+                    }
                 };
 
                 fetchDashboardData();
@@ -813,20 +830,26 @@
             const [integrations, setIntegrations] = useState({ available: [], connected: [] });
 
             useEffect(() => {
-                const fetchIntegrations = async () => {
-                    const integrationsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "integrations"));
-                    const connectedIntegrations = integrationsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setIntegrations({ available: availablePlatforms, connected: connectedIntegrations });
+                const fetchData = async () => {
+                    try {
+                        const [integrationsSnap, dashboardSnap] = await Promise.all([
+                            window.firebase.getDocs(window.firebase.collection(window.firebase.db, "integrations")),
+                            window.firebase.getDoc(window.firebase.doc(window.firebase.db, "dashboards", "main"))
+                        ]);
 
-                    const docRef = window.firebase.doc(window.firebase.db, "dashboards", "main");
-                    const docSnap = await window.firebase.getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const dashboardData = docSnap.data();
-                        const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: connectedIntegrations.find(i => i.id === widget.integrationId) }));
-                        setDashboard({ ...dashboardData, widgets: populatedWidgets });
+                        const connectedIntegrations = integrationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setIntegrations({ available: availablePlatforms, connected: connectedIntegrations });
+
+                        if (dashboardSnap.exists()) {
+                            const dashboardData = dashboardSnap.data();
+                            const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: connectedIntegrations.find(i => i.id === widget.integrationId) }));
+                            setDashboard({ ...dashboardData, widgets: populatedWidgets });
+                        }
+                    } catch (error) {
+                        console.error("Error fetching analytics data:", error);
                     }
                 };
-                fetchIntegrations();
+                fetchData();
             }, []);
 
             if (!dashboard) return <PageWrapper><div>Lade...</div></PageWrapper>;
@@ -862,8 +885,12 @@
 
             useEffect(() => {
                 const fetchTemplates = async () => {
-                    const templatesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "smartLibrary"));
-                    setTemplates(templatesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    try {
+                        const templatesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "smartLibrary"));
+                        setTemplates(templatesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    } catch (error) {
+                        console.error("Error fetching templates:", error);
+                    }
                 };
                 fetchTemplates();
             }, []);
@@ -892,8 +919,12 @@
                 const [articles, setArticles] = useState([]);
                 useEffect(() => {
                     const fetchArticles = async () => {
-                        const articlesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
-                        setArticles(articlesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        try {
+                            const articlesCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "knowledgeBase"));
+                            setArticles(articlesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        } catch (error) {
+                            console.error("Error fetching articles:", error);
+                        }
                     };
                     fetchArticles();
                 }, []);
@@ -922,7 +953,9 @@
                         const prompt = `Du bist ein Experte für das Musikbusiness und agierst als hilfsbereiter Assistent. Deine Aufgabe ist es, Fragen rund um Musikveröffentlichungen, Kampagnenkonzepte, Marketingstrategien und allgemeine Branchenkenntnisse zu beantworten. Gib klare, strukturierte und umsetzbare Ratschläge. Antworte auf Deutsch. Frage des Nutzers: "${userMessage.text}"`;
                         
                         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                        const apiKey = "";
+                        // It is recommended to store API keys in environment variables
+                        // and not directly in the code.
+                        const apiKey = "YOUR_GEMINI_API_KEY";
                         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
                         const response = await fetch(apiUrl, {
@@ -996,8 +1029,12 @@
             const [selectedPath, setSelectedPath] = useState(null);
             useEffect(() => {
                 const fetchPaths = async () => {
-                    const pathsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "learningCenter"));
-                    setPaths(pathsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    try {
+                        const pathsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "learningCenter"));
+                        setPaths(pathsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    } catch (error) {
+                        console.error("Error fetching learning paths:", error);
+                    }
                 };
                 fetchPaths();
             }, []);
@@ -1234,8 +1271,12 @@
 
             useEffect(() => {
                 const fetchProjects = async () => {
-                    const projectsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "projects"));
-                    setProjects(projectsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    try {
+                        const projectsCollection = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, "projects"));
+                        setProjects(projectsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    } catch (error) {
+                        console.error("Error fetching projects:", error);
+                    }
                 };
                 if (user) {
                     fetchProjects();
