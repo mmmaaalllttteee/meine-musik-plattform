@@ -213,55 +213,164 @@
         // React Hooks und Context
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
 
+        // --- Error Boundary für kritische Fehler ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+
+            componentDidCatch(error, errorInfo) {
+                console.error('🚨 Critical React Error:', error, errorInfo);
+                
+                // Emergency redirect nach 5 Sekunden
+                setTimeout(() => {
+                    if (confirm('Die Anwendung ist abgestürzt. Zur Notfall-Version wechseln?')) {
+                        window.location.href = 'emergency.html';
+                    }
+                }, 5000);
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900 p-4">
+                            <div className="glass-pane p-8 rounded-2xl text-center max-w-md">
+                                <div className="text-red-400 mb-4">
+                                    <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <h2 className="text-2xl font-bold text-white mb-4">Anwendungsfehler</h2>
+                                <p className="text-gray-300 mb-6">
+                                    Die Anwendung ist unerwartet abgestürzt. 
+                                    Sie werden automatisch zur Notfall-Version weitergeleitet.
+                                </p>
+                                <div className="space-y-2">
+                                    <button 
+                                        onClick={() => window.location.href = 'demo.html'}
+                                        className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg font-bold mb-2"
+                                    >
+                                        Demo-Version öffnen
+                                    </button>
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="w-full bg-gray-500 text-white py-2 px-4 rounded-lg font-bold"
+                                    >
+                                        Seite neu laden
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return this.props.children;
+            }
+        }
+
         // --- Auth Context für die Benutzerauthentifizierung ---
         const AuthContext = createContext(null);
 
         const AuthProvider = ({ children }) => {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
 
             useEffect(() => {
-                // Warte bis Firebase initialisiert ist
-                const checkFirebase = () => {
-                    if (window.firebase && window.firebase.auth) {
-                        const unsubscribe = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
-                            setUser(user);
-                            setLoading(false);
-                        });
-                        return unsubscribe;
-                    }
-                };
-
-                const unsubscribe = checkFirebase();
+                let mounted = true;
+                let unsubscribeAuth = null;
                 
-                // Falls Firebase noch nicht geladen ist, versuche es erneut
-                if (!unsubscribe) {
-                    const interval = setInterval(() => {
-                        const unsub = checkFirebase();
-                        if (unsub) {
-                            clearInterval(interval);
+                const initializeAuth = async () => {
+                    try {
+                        // Warte maximal 15 Sekunden auf Firebase
+                        const timeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Firebase initialization timeout')), 15000);
+                        });
+                        
+                        const firebasePromise = new Promise((resolve) => {
+                            const checkFirebase = () => {
+                                if (window.firebase && window.firebase.auth) {
+                                    console.log('✅ Firebase Auth verfügbar');
+                                    resolve(window.firebase);
+                                } else {
+                                    // Prüfe alle 100ms für max 15 Sekunden
+                                    setTimeout(checkFirebase, 100);
+                                }
+                            };
+                            checkFirebase();
+                        });
+                        
+                        // Race zwischen Firebase-Init und Timeout
+                        const firebase = await Promise.race([firebasePromise, timeoutPromise]);
+                        
+                        if (!mounted) return;
+                        
+                        // Firebase Auth State Listener
+                        unsubscribeAuth = firebase.onAuthStateChanged(firebase.auth, (user) => {
+                            if (mounted) {
+                                console.log('🔐 Auth State Changed:', user ? 'Logged in' : 'Logged out');
+                                setUser(user);
+                                setLoading(false);
+                                setError(null);
+                            }
+                        });
+                        
+                    } catch (error) {
+                        console.warn('⚠️ Auth initialization failed:', error.message);
+                        if (mounted) {
+                            setError(error.message);
+                            setLoading(false);
+                            // Fortfahren ohne Auth - App soll trotzdem laden
                         }
-                    }, 100);
-                    
-                    // Cleanup nach 10 Sekunden
-                    setTimeout(() => {
-                        clearInterval(interval);
-                        setLoading(false);
-                    }, 10000);
-                }
-
-                return () => {
-                    if (unsubscribe && typeof unsubscribe === 'function') {
-                        unsubscribe();
                     }
                 };
-            }, []);
+                
+                // Starte Auth-Initialisierung
+                initializeAuth();
+                
+                // Fallback: Lade App nach 20 Sekunden auf jeden Fall
+                const fallbackTimeout = setTimeout(() => {
+                    if (mounted && loading) {
+                        console.warn('🚨 Auth loading timeout - continuing without auth');
+                        setLoading(false);
+                        setError('Authentication timeout - continuing in demo mode');
+                    }
+                }, 20000);
+                
+                return () => {
+                    mounted = false;
+                    clearTimeout(fallbackTimeout);
+                    if (unsubscribeAuth && typeof unsubscribeAuth === 'function') {
+                        unsubscribeAuth();
+                    }
+                };
+            }, []); // Leeres Dependency-Array verhindert Endlos-Schleifen
 
-            const value = { user, setUser };
+            const value = { user, setUser, error };
+
+            // Zeige Loading nur für maximal 20 Sekunden
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
+                        <div className="glass-pane p-8 rounded-2xl text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                            <p className="text-white text-lg font-semibold">Plattform wird geladen...</p>
+                            <p className="text-gray-300 text-sm mt-2">
+                                {error ? 'Demo-Modus wird vorbereitet...' : 'Verbindung wird hergestellt...'}
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <AuthContext.Provider value={value}>
-                    {!loading && children}
+                    {children}
                 </AuthContext.Provider>
             );
         };
@@ -1333,15 +1442,15 @@
                             <h2 className="text-2xl font-bold mb-4 text-shadow">Profilinformationen</h2>
                             <form onSubmit={handleProfileUpdate} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow">Anzeigename</label>
-                                    <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-2 mt-1 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
+                                    <label className="block text-sm font-medium text-shadow mb-2">Anzeigename</label>
+                                    <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow">E-Mail</label>
+                                    <label className="block text-sm font-medium text-shadow mb-2">E-Mail</label>
                                     <p className="mt-1 text-shadow">{user?.email}</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow">Profilbild</label>
+                                    <label className="block text-sm font-medium text-shadow mb-2">Profilbild</label>
                                     <div className="flex items-center gap-4 mt-2">
                                         <img src={user?.photoURL || `https://placehold.co/100x100/EBF4FF/1a1a1a?text=${user?.displayName?.charAt(0) || 'U'}`} className="w-16 h-16 rounded-full" />
                                         <input type="file" className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/50 file:text-blue-100 hover:file:bg-blue-500/80 cursor-pointer" disabled title="Funktion noch nicht implementiert" />
@@ -1354,8 +1463,8 @@
                             <h2 className="text-2xl font-bold mb-4 text-shadow">Passwort ändern</h2>
                             <form onSubmit={handlePasswordChange} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow">Neues Passwort</label>
-                                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 mt-1 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
+                                    <label className="block text-sm font-medium text-shadow mb-2">Neues Passwort</label>
+                                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
                                 </div>
                                 <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Passwort ändern</button>
                             </form>
@@ -1365,418 +1474,100 @@
             );
         };
         
-        // --- DoS-SCHUTZ UTILITIES ---
+        // --- APP COMPONENT ---
         
-        // Frontend Data-Security Utilities
-        const sanitizeClientInput = (input, options = {}) => {
-            if (!input) return '';
-            
-            const { maxLength = 1000, allowHtml = false } = options;
-            let sanitized = String(input).trim();
-            
-            // Längenbegrenzung
-            if (sanitized.length > maxLength) {
-                sanitized = sanitized.substring(0, maxLength);
+        // Final App Component mit Error-Boundaries
+        const App = () => {
+            const [activeAuthPage, setActiveAuthPage] = useState('landing');
+            const [appInitialized, setAppInitialized] = useState(false);
+
+            useEffect(() => {
+                // App-Initialisierung mit Timeout
+                const initTimer = setTimeout(() => {
+                    console.log('✅ App initialization complete');
+                    setAppInitialized(true);
+                }, 1000);
+
+                return () => clearTimeout(initTimer);
+            }, []);
+
+            // Loading Screen
+            if (!appInitialized) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
+                        <div className="glass-pane p-8 rounded-2xl text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                            <p className="text-white text-lg font-semibold">Musik-Plattform wird geladen...</p>
+                        </div>
+                    </div>
+                );
             }
-            
-            // XSS-Schutz
-            if (!allowHtml) {
-                sanitized = sanitized
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#x27;')
-                    .replace(/\//g, '&#x2F;');
-            }
-            
-            // Script-Injection verhindern
-            sanitized = sanitized
-                .replace(/javascript:/gi, '')
-                .replace(/on\w+\s*=/gi, '')
-                .replace(/<script[^>]*>.*?<\/script>/gi, '');
-            
-            return sanitized;
+
+            return (
+                <ErrorBoundary>
+                    <AuthProvider>
+                        <AppContent 
+                            activeAuthPage={activeAuthPage} 
+                            setActiveAuthPage={setActiveAuthPage} 
+                        />
+                    </AuthProvider>
+                </ErrorBoundary>
+            );
         };
 
-        // Sichere Local Storage Funktionen
-        const secureStorage = {
-            setItem: (key, value) => {
-                try {
-                    // Keine sensiblen Daten in Local Storage
-                    const forbiddenKeys = ['password', 'token', 'apiKey', 'secret'];
-                    if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
-                        console.error('🚨 Attempt to store sensitive data in localStorage blocked');
-                        return false;
-                    }
-                    
-                    // Daten verschleiern (einfache Obfuscation)
-                    const obfuscated = btoa(JSON.stringify({ data: value, timestamp: Date.now() }));
-                    localStorage.setItem(key, obfuscated);
-                    return true;
-                } catch (error) {
-                    console.error('Storage error:', error);
-                    return false;
-                }
-            },
-            
-            getItem: (key) => {
-                try {
-                    const stored = localStorage.getItem(key);
-                    if (!stored) return null;
-                    
-                    const parsed = JSON.parse(atob(stored));
-                    
-                    // Prüfe Alter der Daten (automatische Löschung nach 24h)
-                    if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
-                        localStorage.removeItem(key);
-                        return null;
-                    }
-                    
-                    return parsed.data;
-                } catch (error) {
-                    localStorage.removeItem(key);
-                    return null;
-                }
-            },
-            
-            removeItem: (key) => {
-                localStorage.removeItem(key);
-            }
-        };
+        // App Content Handler
+        const AppContent = ({ activeAuthPage, setActiveAuthPage }) => {
+            const { user } = useAuth();
 
-        // Sichere Formular-Validierung
-        const validateForm = (formData, rules) => {
-            const errors = {};
-            
-            Object.keys(rules).forEach(field => {
-                const value = formData[field];
-                const rule = rules[field];
-                
-                // Required-Validierung
-                if (rule.required && (!value || value.trim() === '')) {
-                    errors[field] = `${field} ist erforderlich`;
-                    return;
-                }
-                
-                if (value) {
-                    // Längen-Validierung
-                    if (rule.maxLength && value.length > rule.maxLength) {
-                        errors[field] = `${field} ist zu lang (max. ${rule.maxLength} Zeichen)`;
-                        return;
-                    }
-                    
-                    if (rule.minLength && value.length < rule.minLength) {
-                        errors[field] = `${field} ist zu kurz (min. ${rule.minLength} Zeichen)`;
-                        return;
-                    }
-                    
-                    // E-Mail-Validierung
-                    if (rule.type === 'email') {
-                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                        if (!emailRegex.test(value)) {
-                            errors[field] = 'Ungültige E-Mail-Adresse';
-                            return;
-                        }
-                    }
-                    
-                    // URL-Validierung
-                    if (rule.type === 'url') {
-                        try {
-                            new URL(value);
-                            if (!value.startsWith('https://') && !value.startsWith('http://localhost')) {
-                                errors[field] = 'Nur HTTPS-URLs sind erlaubt';
-                            }
-                        } catch {
-                            errors[field] = 'Ungültige URL';
-                        }
-                    }
-                    
-                    // Pattern-Validierung
-                    if (rule.pattern && !rule.pattern.test(value)) {
-                        errors[field] = rule.message || `${field} hat ein ungültiges Format`;
-                    }
-                }
-            });
-            
-            return {
-                isValid: Object.keys(errors).length === 0,
-                errors
+            const handleLogin = (userData) => {
+                console.log('✅ User logged in:', userData);
+                setActiveAuthPage('app');
             };
-        };
 
-        // Content Security Policy Enforcement (Client-Side)
-        const enforceCSP = () => {
-            // Überwache und blockiere gefährliche Scripts
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    mutation.addedNodes.forEach((node) => {
-                        if (node.tagName === 'SCRIPT' && !node.src.startsWith('https://')) {
-                            console.warn('🚨 Unauthorized script blocked:', node);
-                            node.remove();
-                        }
-                    });
-                });
-            });
-            
-            observer.observe(document.body, { childList: true, subtree: true });
-        };
+            const handleRegister = (userData) => {
+                console.log('✅ User registered:', userData);
+                setActiveAuthPage('app');
+            };
 
-        // Data-Loss-Prevention für Formular-Inputs
-        const preventDataLeakage = () => {
-            // Überwache Copy-Paste-Operationen bei sensiblen Feldern
-            document.addEventListener('paste', (event) => {
-                const target = event.target;
-                if (target.type === 'password' || target.dataset.sensitive === 'true') {
-                    const clipboardData = event.clipboardData.getData('text');
-                    
-                    // Prüfe auf verdächtige Inhalte
-                    const suspiciousPatterns = [
-                        /password\s*[:=]\s*\w+/i,
-                        /token\s*[:=]\s*\w+/i,
-                        /api[_-]?key\s*[:=]\s*\w+/i
-                    ];
-                    
-                    if (suspiciousPatterns.some(pattern => pattern.test(clipboardData))) {
-                        event.preventDefault();
-                        console.warn('🚨 Suspicious data paste blocked');
-                        alert('Aus Sicherheitsgründen wurde das Einfügen blockiert.');
-                    }
-                }
-            });
-        };
+            // Bestimme welche Seite angezeigt werden soll
+            if (user || activeAuthPage === 'app') {
+                return <MainApp />;
+            }
 
-        // Sichere Authentication-Wrapper
-        const secureAuth = {
-            currentUser: null,
-            
-            login: async (email, password) => {
-                try {
-                    // Client-seitige Validierung
-                    if (!email || !password) {
-                        throw new Error('E-Mail und Passwort erforderlich');
-                    }
-                    
-                    const sanitizedEmail = sanitizeClientInput(email, { maxLength: 254 });
-                    
-                    // Verwende Firebase Auth (Passwort wird nie im Code gespeichert)
-                    const userCredential = await window.firebase.signInWithEmailAndPassword(
-                        window.firebase.auth, 
-                        sanitizedEmail, 
-                        password // Passwort geht direkt an Firebase
-                    );
-                    
-                    this.currentUser = {
-                        uid: userCredential.user.uid,
-                        email: userCredential.user.email,
-                        displayName: userCredential.user.displayName,
-                        photoURL: userCredential.user.photoURL
-                        // Keine sensiblen Daten lokal speichern
-                    };
-                    
-                    // Session-Info sicher speichern (ohne Passwort)
-                    secureStorage.setItem('userSession', {
-                        uid: this.currentUser.uid,
-                        email: this.currentUser.email,
-                        loginTime: Date.now()
-                    });
-                    
-                    console.log('✅ Sichere Anmeldung erfolgreich');
-                    return this.currentUser;
-                    
-                } catch (error) {
-                    console.error('Login error:', error.message);
-                    throw new Error('Anmeldung fehlgeschlagen');
-                }
-            },
-            
-            logout: async () => {
-                try {
-                    await window.firebase.signOut(window.firebase.auth);
-                    
-                    // Lokale Daten sicher löschen
-                    secureStorage.removeItem('userSession');
-                    this.currentUser = null;
-                    
-                    // Sensitive Form-Daten löschen
-                    document.querySelectorAll('input[type="password"]').forEach(input => {
-                        input.value = '';
-                    });
-                    
-                    console.log('✅ Sichere Abmeldung erfolgreich');
-                    
-                } catch (error) {
-                    console.error('Logout error:', error.message);
-                }
-            },
-            
-            updateProfile: async (profileData) => {
-                try {
-                    if (!this.currentUser) {
-                        throw new Error('Nicht angemeldet');
-                    }
-                    
-                    // Client-seitige Daten-Sanitization
-                    const sanitizedData = {};
-                    const allowedFields = ['displayName', 'photoURL'];
-                    
-                    allowedFields.forEach(field => {
-                        if (profileData[field]) {
-                            sanitizedData[field] = sanitizeClientInput(profileData[field], {
-                                maxLength: field === 'photoURL' ? 2048 : 100
-                            });
-                        }
-                    });
-                    
-                    // Server-seitige Aktualisierung
-                    const response = await apiQueue.add(async () => {
-                        return await safeApiRequest(`${window.apiConfig.baseUrl}/api/users/${this.currentUser.uid}/profile`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${await window.firebase.auth.currentUser.getIdToken()}`
-                            },
-                            body: JSON.stringify({ profileData: sanitizedData })
-                        });
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error('Profil-Update fehlgeschlagen');
-                    }
-                    
-                    console.log('✅ Profil sicher aktualisiert');
-                    return await response.json();
-                    
-                } catch (error) {
-                    console.error('Profile update error:', error.message);
-                    throw error;
-                }
+            switch (activeAuthPage) {
+                case 'login':
+                    return <LoginPage onLogin={handleLogin} setActiveAuthPage={setActiveAuthPage} />;
+                case 'register':
+                    return <RegisterPage onRegister={handleRegister} setActiveAuthPage={setActiveAuthPage} />;
+                default:
+                    return <LandingPage setActiveAuthPage={setActiveAuthPage} />;
             }
         };
 
-        // Initialisiere Security-Features
-        document.addEventListener('DOMContentLoaded', () => {
-            enforceCSP();
-            preventDataLeakage();
-            
-            // Warnung bei Dev-Tools (nur als Abschreckung)
-            let devtools = {open: false, orientation: null};
-            const threshold = 160;
-            setInterval(() => {
-                if (window.outerHeight - window.innerHeight > threshold || 
-                    window.outerWidth - window.innerWidth > threshold) {
-                    if (!devtools.open) {
-                        devtools.open = true;
-                        console.warn('🚨 Developer Tools detected. Please be aware that this application contains sensitive user data.');
-                    }
-                } else {
-                    devtools.open = false;
-                }
-            }, 500);
-        });
+        // --- RENDER APP ---
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         
-        // Debounce-Funktion für API-Calls
-        const debounce = (func, delay) => {
-            let timeoutId;
-            return (...args) => {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => func.apply(null, args), delay);
-            };
-        };
-
-        // Exponential Backoff für API-Retry
-        const apiRetry = async (apiCall, maxRetries = 3, baseDelay = 1000) => {
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    return await apiCall();
-                } catch (error) {
-                    if (attempt === maxRetries - 1) throw error;
-                    
-                    if (error.message.includes('429')) {
-                        // Rate limit hit - warte länger
-                        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
-                        console.warn(`Rate limit erreicht, warte ${Math.round(delay)}ms...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        throw error; // Andere Fehler sofort weiterwerfen
-                    }
-                }
-            }
-        };
-
-        // Sichere API-Request-Funktion mit DoS-Schutz
-        const safeApiRequest = async (url, options = {}, timeout = 15000) => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
+        // Sichere App-Renderung mit Fallback
+        try {
+            root.render(<App />);
+            console.log('🚀 App successfully rendered');
+        } catch (error) {
+            console.error('🚨 Critical render error:', error);
             
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    signal: controller.signal,
-                    headers: {
-                        'User-Agent': 'MusikPlattform-Frontend/1.0',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        ...options.headers
-                    }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    if (response.status === 429) {
-                        const retryAfter = response.headers.get('Retry-After') || '60';
-                        throw new Error(`429 Rate limit exceeded. Retry after ${retryAfter} seconds.`);
-                    }
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                return response;
-            } catch (error) {
-                clearTimeout(timeoutId);
-                
-                if (error.name === 'AbortError') {
-                    throw new Error('Request timeout');
-                }
-                throw error;
-            }
-        };
-
-        // Request-Queue für sequenzielle API-Calls
-        class RequestQueue {
-            constructor(maxConcurrent = 3) {
-                this.queue = [];
-                this.running = 0;
-                this.maxConcurrent = maxConcurrent;
-            }
-
-            async add(requestFn) {
-                return new Promise((resolve, reject) => {
-                    this.queue.push({ requestFn, resolve, reject });
-                    this.process();
-                });
-            }
-
-            async process() {
-                if (this.running >= this.maxConcurrent || this.queue.length === 0) {
-                    return;
-                }
-
-                this.running++;
-                const { requestFn, resolve, reject } = this.queue.shift();
-
-                try {
-                    const result = await requestFn();
-                    resolve(result);
-                } catch (error) {
-                    reject(error);
-                } finally {
-                    this.running--;
-                    this.process(); // Process next item
-                }
-            }
+            // Emergency Fallback
+            document.getElementById('root').innerHTML = `
+                <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #7c3aed 100%); color: white; font-family: system-ui;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; max-width: 400px;">
+                        <h1>🚨 Kritischer Fehler</h1>
+                        <p>Die Anwendung konnte nicht geladen werden.</p>
+                        <div style="margin-top: 1rem;">
+                            <a href="demo.html" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; margin-right: 0.5rem;">Demo öffnen</a>
+                            <a href="emergency.html" style="background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none;">Notfallmodus</a>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
-
-        // Globale Request-Queue
-        const apiQueue = new RequestQueue(2); // Max 2 gleichzeitige API-Calls
     </script>
 </body>
 </html>
