@@ -189,6 +189,9 @@
         }
     </script>
     
+    <!-- Multi-Character-Sanitization Security Library -->
+    <script src="multi-character-sanitizer.js"></script>
+    
     <style>
         body { 
             -webkit-font-smoothing: antialiased; 
@@ -377,6 +380,252 @@
 
         const useAuth = () => {
             return useContext(AuthContext);
+        };
+        
+        // --- Sichere HTML-Input-Sanitization mit Multi-Character-Schutz ---
+        const safeHtmlInputHandler = (event) => {
+            const target = event.target;
+            const rawValue = target.value;
+            
+            // Multi-Character-sichere Sanitization verwenden
+            if (window.multiCharacterSanitizer) {
+                try {
+                    const sanitizedValue = window.multiCharacterSanitizer.sanitize(rawValue, {
+                        maxLength: target.maxLength || 10000,
+                        allowHtml: target.dataset.allowHtml === 'true'
+                    });
+                    
+                    // Nur bei Änderungen aktualisieren (verhindert Cursor-Jumping)
+                    if (sanitizedValue !== rawValue) {
+                        const selectionStart = target.selectionStart;
+                        const selectionEnd = target.selectionEnd;
+                        
+                        target.value = sanitizedValue;
+                        
+                        // Cursor-Position wiederherstellen
+                        const lengthDiff = rawValue.length - sanitizedValue.length;
+                        target.setSelectionRange(
+                            Math.max(0, selectionStart - lengthDiff),
+                            Math.max(0, selectionEnd - lengthDiff)
+                        );
+                        
+                        // Warnung bei blockiertem Inhalt
+                        if (lengthDiff > 0) {
+                            console.warn('🔒 Potentiell gefährlicher Inhalt wurde entfernt');
+                            
+                            // Visual feedback für User
+                            target.style.borderColor = '#f59e0b';
+                            setTimeout(() => {
+                                target.style.borderColor = '';
+                            }, 2000);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Sanitization error:', error);
+                    // Fallback: Entferne nur die gefährlichsten Zeichen
+                    target.value = rawValue.replace(/[<>'"]/g, '');
+                }
+            } else {
+                // Fallback ohne Multi-Character-Library
+                console.warn('Multi-Character-Sanitizer nicht verfügbar, verwende Basic-Sanitization');
+                target.value = rawValue
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#x27;');
+            }
+        };
+
+        // Data-Loss-Prevention mit Multi-Character-sicherer Sanitization  
+        const preventDataLeakage = () => {
+            // Überwache Copy-Paste-Operationen bei sensiblen Feldern
+            document.addEventListener('paste', (event) => {
+                const target = event.target;
+                if (target.type === 'password' || target.dataset.sensitive === 'true') {
+                    const clipboardData = event.clipboardData.getData('text');
+                    
+                    // Multi-Character-sichere Sanitization
+                    const sanitizedData = window.multiCharacterSanitizer ? 
+                        window.multiCharacterSanitizer.sanitize(clipboardData, { maxLength: 1000 }) : 
+                        clipboardData;
+                    
+                    // Prüfe auf verdächtige Inhalte mit sicheren Patterns
+                    const suspiciousPatterns = [
+                        /password[\s\u00A0]{0,10}[:=][\s\u00A0]{0,10}[\w]{1,50}/i,
+                        /token[\s\u00A0]{0,10}[:=][\s\u00A0]{0,10}[\w]{1,50}/i,
+                        /api[_-]?key[\s\u00A0]{0,10}[:=][\s\u00A0]{0,10}[\w]{1,50}/i,
+                        /secret[\s\u00A0]{0,10}[:=][\s\u00A0]{0,10}[\w]{1,50}/i,
+                        /private[\s\u00A0]{0,10}[:=][\s\u00A0]{0,10}[\w]{1,50}/i
+                    ];
+                    
+                    // Multi-Character-Bypass-sichere Prüfung
+                    const isSuspicious = suspiciousPatterns.some(pattern => {
+                        try {
+                            // Timeout-geschützte Pattern-Prüfung
+                            const startTime = performance.now();
+                            const result = pattern.test(sanitizedData);
+                            const duration = performance.now() - startTime;
+                            
+                            if (duration > 50) { // 50ms Timeout
+                                console.warn('Slow pattern detected, blocking for safety');
+                                return true; // Bei langsamen Patterns blockieren
+                            }
+                            
+                            return result;
+                        } catch (error) {
+                            console.error('Pattern test error:', error);
+                            return true; // Bei Fehlern sicherheitshalber blockieren
+                        }
+                    });
+                    
+                    if (isSuspicious) {
+                        event.preventDefault();
+                        console.warn('🚨 Suspicious data paste blocked (Multi-Character-protected)');
+                        alert('Aus Sicherheitsgründen wurde das Einfügen blockiert.');
+                    }
+                }
+            });
+            
+            // Input-Event-Listener für alle Text-Inputs
+            document.addEventListener('input', safeHtmlInputHandler);
+            
+            // Form-Submit-Sanitization
+            document.addEventListener('submit', (event) => {
+                const form = event.target;
+                if (form.tagName === 'FORM') {
+                    const inputs = form.querySelectorAll('input[type="text"], input[type="email"], textarea');
+                    
+                    inputs.forEach(input => {
+                        if (window.multiCharacterSanitizer) {
+                            try {
+                                input.value = window.multiCharacterSanitizer.sanitize(input.value, {
+                                    maxLength: input.maxLength || 10000,
+                                    allowHtml: input.dataset.allowHtml === 'true'
+                                });
+                            } catch (error) {
+                                console.error('Form sanitization error:', error);
+                                // Fallback
+                                input.value = input.value.replace(/[<>'"]/g, '');
+                            }
+                        }
+                    });
+                }
+            });
+        };
+
+        // Sichere Formular-Validierung mit Multi-Character-Sanitization
+        const validateForm = (formData, rules) => {
+            const errors = {};
+            const maxProcessingTime = 50; // 50ms max per regex
+            
+            Object.keys(rules).forEach(field => {
+                const value = formData[field];
+                const rule = rules[field];
+                
+                // Required-Validierung
+                if (rule.required && (!value || value.trim() === '')) {
+                    errors[field] = `${field} ist erforderlich`;
+                    return;
+                }
+                
+                if (value) {
+                    // Multi-Pass-Sanitization für komplette Sicherheit
+                    let sanitizedValue = value;
+                    
+                    if (window.multiCharacterSanitizer) {
+                        try {
+                            sanitizedValue = window.multiCharacterSanitizer.sanitize(value, {
+                                maxLength: rule.maxLength || 10000,
+                                allowHtml: false
+                            });
+                        } catch (error) {
+                            console.error('Validation sanitization error:', error);
+                            sanitizedValue = value.replace(/[<>'"]/g, ''); // Fallback
+                        }
+                    }
+                    
+                    // Längenbegrenzung NACH Sanitization (verhindert Bypass durch Expansion)
+                    if (sanitizedValue.length > 10000) {
+                        errors[field] = `${field} ist zu lang für die Verarbeitung`;
+                        return;
+                    }
+                    
+                    // Längen-Validierung mit sanitized value
+                    if (rule.maxLength && sanitizedValue.length > rule.maxLength) {
+                        errors[field] = `${field} ist zu lang (max. ${rule.maxLength} Zeichen)`;
+                        return;
+                    }
+                    
+                    if (rule.minLength && sanitizedValue.length < rule.minLength) {
+                        errors[field] = `${field} ist zu kurz (min. ${rule.minLength} Zeichen)`;
+                        return;
+                    }
+                    
+                    // E-Mail-Validierung (Multi-Character-sicher)
+                    if (rule.type === 'email') {
+                        try {
+                            const validatedEmail = window.multiCharacterSanitizer ? 
+                                window.multiCharacterSanitizer.validateEmail(sanitizedValue) : 
+                                sanitizedValue;
+                            
+                            // Zusätzliche Längenbegrenzung
+                            if (validatedEmail.length > 254) {
+                                errors[field] = 'E-Mail-Adresse ist zu lang';
+                                return;
+                            }
+                        } catch (error) {
+                            errors[field] = error.message || 'Ungültige E-Mail-Adresse';
+                            return;
+                        }
+                    }
+                    
+                    // URL-Validierung (Multi-Character-sicher)
+                    if (rule.type === 'url') {
+                        try {
+                            const validatedUrl = window.multiCharacterSanitizer ? 
+                                window.multiCharacterSanitizer.validateUrl(sanitizedValue) : 
+                                new URL(sanitizedValue);
+                            
+                            // Zusätzliche Sicherheitsprüfungen
+                            if (validatedUrl.protocol !== 'https:' && validatedUrl.protocol !== 'http:') {
+                                errors[field] = 'Unsicheres URL-Protokoll';
+                            }
+                        } catch (error) {
+                            errors[field] = error.message || 'Ungültige URL';
+                        }
+                    }
+                    
+                    // Pattern-Validierung mit Multi-Character-Timeout-Schutz
+                    if (rule.pattern) {
+                        const startTime = performance.now();
+                        try {
+                            // Pre-sanitization für Pattern-Tests
+                            const testValue = sanitizedValue.substring(0, 500); // Länge begrenzen
+                            
+                            const matches = rule.pattern.test(testValue);
+                            const duration = performance.now() - startTime;
+                            
+                            if (duration > maxProcessingTime) {
+                                console.warn(`Slow regex detected: ${rule.pattern} took ${duration}ms`);
+                                errors[field] = 'Validierung zu langsam - bitte Eingabe überprüfen';
+                                return;
+                            }
+                            
+                            if (!matches) {
+                                errors[field] = rule.message || `${field} hat ein ungültiges Format`;
+                            }
+                        } catch (error) {
+                            console.error('Regex error:', error);
+                            errors[field] = 'Validierungsfehler - bitte Eingabe überprüfen';
+                        }
+                    }
+                }
+            });
+            
+            return {
+                isValid: Object.keys(errors).length === 0,
+                errors
+            };
         };
         
         // --- Dynamic Background Component ---
@@ -1442,15 +1691,15 @@
                             <h2 className="text-2xl font-bold mb-4 text-shadow">Profilinformationen</h2>
                             <form onSubmit={handleProfileUpdate} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow mb-2">Anzeigename</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Anzeigename</label>
                                     <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow mb-2">E-Mail</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">E-Mail</label>
                                     <p className="mt-1 text-shadow">{user?.email}</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow mb-2">Profilbild</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Profilbild</label>
                                     <div className="flex items-center gap-4 mt-2">
                                         <img src={user?.photoURL || `https://placehold.co/100x100/EBF4FF/1a1a1a?text=${user?.displayName?.charAt(0) || 'U'}`} className="w-16 h-16 rounded-full" />
                                         <input type="file" className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/50 file:text-blue-100 hover:file:bg-blue-500/80 cursor-pointer" disabled title="Funktion noch nicht implementiert" />
@@ -1463,7 +1712,7 @@
                             <h2 className="text-2xl font-bold mb-4 text-shadow">Passwort ändern</h2>
                             <form onSubmit={handlePasswordChange} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-shadow mb-2">Neues Passwort</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Neues Passwort</label>
                                     <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
                                 </div>
                                 <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Passwort ändern</button>
