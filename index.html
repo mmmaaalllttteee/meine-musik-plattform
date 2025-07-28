@@ -420,7 +420,6 @@
 
             const value = { user, setUser, error };
 
-            // Zeige Loading nur für maximal 20 Sekunden
             if (loading) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
@@ -441,7 +440,9 @@
                                         console.log('🎭 Benutzer wechselt zum Demo-Modus');
                                         setLoading(false);
                                         setError('Demo-Modus aktiviert - Backend nicht verfügbar');
-                                        initializeDemoMode();
+                                        if (typeof initializeDemoMode === 'function') {
+                                            initializeDemoMode();
+                                        }
                                     }}
                                     className="w-full bg-blue-500/80 text-white py-2 px-4 rounded-lg text-sm hover:bg-blue-500 transition"
                                 >
@@ -449,12 +450,9 @@
                                 </button>
                                 
                                 <div className="text-xs text-gray-400 mt-2">
-                                    💡 Backend starten: <code>chmod +x start-backend.sh && ./start-backend.sh</code>
+                                    💡 Backend starten: <code>npm install && npm start</code>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                );
                         </div>
                     </div>
                 );
@@ -471,7 +469,71 @@
             return useContext(AuthContext);
         };
         
-        // --- Sichere HTML-Input-Sanitization mit Multi-Character-Schutz ---
+        // --- Sichere Link-Komponente mit Multi-Character-Validierung ---
+        const SecureLink = ({ href, children, target, rel, className, ...props }) => {
+            const [isValidUrl, setIsValidUrl] = useState(false);
+            const [sanitizedHref, setSanitizedHref] = useState('#');
+
+            useEffect(() => {
+                if (!href) {
+                    setIsValidUrl(false);
+                    setSanitizedHref('#');
+                    return;
+                }
+
+                try {
+                    // Multi-Character-sichere URL-Validierung
+                    let validatedUrl;
+                    
+                    if (window.multiCharacterSanitizer) {
+                        validatedUrl = window.multiCharacterSanitizer.validateUrl(href, {
+                            allowRelative: false,
+                            requireHttps: false,
+                            maxLength: 2048,
+                            allowedSchemes: ['http:', 'https:', 'mailto:', 'tel:', 'ftp:', 'ftps:']
+                        });
+                    } else {
+                        // Fallback-Validierung
+                        const urlObj = new URL(href);
+                        const allowedSchemes = ['http:', 'https:', 'mailto:', 'tel:', 'ftp:', 'ftps:'];
+                        
+                        if (!allowedSchemes.includes(urlObj.protocol)) {
+                            throw new Error(`URL-Schema '${urlObj.protocol}' ist nicht erlaubt`);
+                        }
+                        
+                        validatedUrl = urlObj.toString();
+                    }
+                    
+                    setSanitizedHref(validatedUrl);
+                    setIsValidUrl(true);
+                    
+                } catch (error) {
+                    console.warn('🔒 Invalid or unsafe URL detected:', href, error.message);
+                    setIsValidUrl(false);
+                    setSanitizedHref('#');
+                }
+            }, [href]);
+
+            // Falls URL ungültig ist, zeige Text ohne Link
+            if (!isValidUrl) {
+                return (
+                    <span className={className} title="Link wurde aus Sicherheitsgründen deaktiviert">
+                        {children}
+                    </span>
+                );
+            }
+
+            // Sichere Link-Attribute
+            const secureProps = {
+                ...props,
+                href: sanitizedHref,
+                target: target || '_blank',
+                rel: rel || 'noopener noreferrer nofollow',
+                className: className
+            };
+
+            return <a {...secureProps}>{children}</a>;
+        };
         const safeHtmlInputHandler = (event) => {
             const target = event.target;
             const rawValue = target.value;
@@ -1008,7 +1070,16 @@
                 </div>
             );
             const KpiWidget = ({ kpi }) => (
-                <div className="glass-pane p-4 rounded-2xl"><div className="flex items-center gap-3 mb-2"><img src={platformLogos[kpi.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} alt={kpi.platform} className="h-5 object-contain rounded-md" /><span className="text-sm font-medium text-gray-300 text-shadow">{kpi.kpi}</span></div><p className="text-2xl font-bold text-shadow">{kpi.value}</p><p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>{kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%</p></div>
+                <div className="glass-pane p-4 rounded-2xl">
+                    <div className="flex items-center gap-3 mb-2">
+                        <img src={platformLogos[kpi.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} alt={kpi.platform} className="h-5 object-contain rounded-md" />
+                        <span className="text-sm font-medium text-gray-300 text-shadow">{kpi.kpi}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-shadow">{kpi.value}</p>
+                    <p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%
+                    </p>
+                </div>
             );
             const RecentActivityWidget = ({ activities }) => (
                 <div className="glass-pane p-6 rounded-2xl h-full"><h3 className="font-bold text-lg mb-4 text-shadow">Letzte Aktivitäten</h3><div className="space-y-4">{activities.map(act => (<div key={act.id} className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">{act.type === 'task_completed' ? <Icon name="checkCircle" className="w-5 h-5 text-green-400" /> : <Icon name="image" className="w-5 h-5 text-blue-400" />}</div><div><p className="text-sm font-medium text-gray-200 text-shadow">{act.text}</p><p className="text-xs text-gray-400">{act.project} · {act.time}</p></div></div>))}</div></div>
@@ -1592,437 +1663,511 @@
             );
         };
 
-        // --- AnalyticsPage Component ---
-        const AnalyticsPage = () => {
-            const [dashboard, setDashboard] = useState(null);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            useEffect(() => {
-                const dashboardData = mockDashboards[0];
-                const populatedWidgets = dashboardData.widgets.map(widget => ({ ...widget, integration: mockIntegrations[widget.integrationId] }));
-                setDashboard({ ...dashboardData, widgets: populatedWidgets });
-            }, []);
-            if (!dashboard) return <PageWrapper><div>Lade...</div></PageWrapper>;
-            const KpiWidget = ({ widget }) => {
-                const value = Math.floor(Math.random() * 50000) + 1000;
-                const change = (Math.random() * 10 - 5).toFixed(1);
-                return (<div className="glass-pane p-4 flex flex-col h-full rounded-2xl"><div className="flex justify-between items-start mb-2"><div className="flex items-center gap-2"><img src={platformLogos[widget.integration.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-5 h-5 object-contain rounded-md" /><span className="text-sm font-medium text-gray-300 text-shadow">{kpiLabels[widget.kpi]}</span></div><button className="text-gray-400"><Icon name="moreVertical" className="w-4 h-4" /></button></div><div className="flex-grow flex flex-col justify-center"><p className="text-3xl lg:text-4xl font-bold text-shadow">{value.toLocaleString('de-DE')}</p><div className={`text-sm font-semibold flex items-center ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>{change >= 0 ? '▲' : '▼'} {change}%</div></div><div className="text-xs text-gray-400 mt-2 flex items-center gap-1"><Icon name="clock" className="w-3 h-3" /><span>{widget.timeFrame.replace(/_/g, ' ')}</span></div></div>);
+        // --- MAIN APP COMPONENTS ---
+
+        // Navigation Component
+        const Navigation = ({ activePage, setActivePage, user }) => {
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+            const handleSignOut = async () => {
+                try {
+                    await window.firebase.signOut();
+                    console.log('✅ User signed out');
+                } catch (error) {
+                    console.error('❌ Sign out error:', error);
+                }
             };
-            const IntegrationsModal = ({ onClose }) => {
-                const [integrations, setIntegrations] = useState({ available: [], connected: [] });
-                useEffect(() => { setIntegrations({ available: availablePlatforms, connected: Object.values(mockIntegrations) }); }, []);
-                return (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}><div className="glass-pane rounded-2xl w-full max-w-2xl text-white" onClick={e => e.stopPropagation()}><div className="p-6 border-b border-white/20"><h2 className="text-xl font-bold text-shadow">Integrationen verwalten</h2></div><div className="p-6 max-h-[80vh] overflow-y-auto"><h3 className="font-semibold mb-3 text-shadow">Verbundene Konten</h3><div className="space-y-3 mb-8">{integrations.connected.map(int => (<div key={int.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg"><div className="flex items-center gap-3"><img src={platformLogos[int.platform]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-6 h-6 object-contain rounded" /><div><p className="font-semibold text-shadow">{int.platform}</p><p className="text-sm text-gray-300">{int.accountName}</p></div></div><div className="flex items-center gap-3">{int.status === 'connected' ? <Icon name="checkCircle" className="w-5 h-5 text-green-400" /> : <Icon name="xCircle" className="w-5 h-5 text-red-400" />}<button><Icon name="trash2" className="w-4 h-4 text-gray-400 hover:text-red-400" /></button></div></div>))}</div><h3 className="font-semibold mb-3 text-shadow">Neue Integration hinzufügen</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{integrations.available.map(p => (<button key={p.id} className="flex items-center gap-3 p-3 border border-white/20 rounded-lg hover:bg-white/10"><img src={platformLogos[p.name]} onError={(e) => e.target.src='https://placehold.co/32x32/cccccc/ffffff?text=P'} className="w-6 h-6 object-contain rounded" /><span className="font-semibold text-shadow">Mit {p.name} verbinden</span></button>))}</div></div></div></div>);
-            };
+
+            const navItems = [
+                { id: 'dashboard', name: 'Dashboard', icon: 'barChart' },
+                { id: 'projects', name: 'Projekte', icon: 'briefcase' },
+                { id: 'analytics', name: 'Analytics', icon: 'zap' },
+                { id: 'library', name: 'Library', icon: 'bookOpen' },
+                { id: 'support', name: 'Support', icon: 'messageSquare' },
+                { id: 'learningcenter', name: 'Learning', icon: 'award' },
+                { id: 'comply', name: 'Comply', icon: 'shieldCheck' },
+                { id: 'profile', name: 'Profil', icon: 'user' }
+            ];
+
             return (
-                <PageWrapper>
-                    {isModalOpen && <IntegrationsModal onClose={() => setIsModalOpen(false)} />}
-                    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-                        <div className="flex items-center gap-4 mb-4 sm:mb-0">{dashboard.logoUrl && <img src={dashboard.logoUrl} className="h-10 rounded-md" />}<h1 className="text-2xl sm:text-3xl font-bold text-shadow">{dashboard.name}</h1></div>
-                        <div className="flex items-center space-x-2"><button onClick={() => setIsModalOpen(true)} className="glass-pane flex items-center px-4 py-2 rounded-lg shadow-sm text-sm"><Icon name="link" className="w-4 h-4 mr-2" /> Integrationen</button><button className="bg-blue-500 text-white flex items-center px-4 py-2 rounded-lg shadow-sm text-sm"><Icon name="plus" className="w-4 h-4 mr-2" /> KPI hinzufügen</button></div>
-                    </header>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-6">
-                        {dashboard.widgets.map(widget => (<div key={widget.id} className="cursor-grab sm:col-span-1 md:col-span-1 lg:col-span-4"><KpiWidget widget={widget} /></div>))}
-                        <div className="sm:col-span-1 md:col-span-1 lg:col-span-4 cursor-pointer border-2 border-dashed border-white/30 rounded-2xl flex items-center justify-center min-h-[150px]"><div className="text-center text-gray-300"><Icon name="plus" className="w-8 h-8 mx-auto mb-2" /><p className="font-semibold">KPI hinzufügen</p></div></div>
-                    </div>
-                </PageWrapper>
-            );
-        };
+                <nav className="glass-pane sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between items-center h-16">
+                            <div className="flex items-center">
+                                <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="h-10 w-10 object-contain" onError={(e) => { e.target.src='https://placehold.co/40x40/ffffff/000000?text=W'; }} />
+                                <span className="ml-3 text-xl font-bold text-shadow">Musik-Plattform</span>
+                            </div>
 
-        // --- LibraryPage Component ---
-        const LibraryPage = () => {
-            const [templates, setTemplates] = useState([]);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [activeCategory, setActiveCategory] = useState('Alle');
-            useEffect(() => { setTemplates(mockCmsData.data); }, []);
-            const categories = useMemo(() => ['Alle', ...new Set(templates.map(t => t.category))], [templates]);
-            const filteredTemplates = useMemo(() => templates.filter(template => (activeCategory === 'Alle' || template.category === activeCategory) && (searchTerm === '' || template.title.toLowerCase().includes(searchTerm.toLowerCase()))), [templates, searchTerm, activeCategory]);
-            const DownloadButton = ({ url, format }) => (<a href={url} className="inline-flex items-center bg-white/10 text-xs font-bold px-3 py-1 rounded-full hover:bg-white/20"><Icon name={format === 'pdf' ? 'fileText' : 'file'} className="w-4 h-4 mr-2" />{format.toUpperCase()}</a>);
-            return (
-                <PageWrapper>
-                    <header className="mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">Smart Library</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Vorlagen, Verträge und Best Practices.</p></header>
-                    <div className="flex flex-col md:flex-row gap-4 mb-8">
-                        <div className="relative flex-grow"><Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /><input type="text" placeholder="Suchen..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400" /></div>
-                        <div className="flex-shrink-0 bg-black/20 p-1 rounded-lg border border-white/20 overflow-x-auto"><div className="flex">{categories.map(cat => (<button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-1 text-sm font-medium rounded-md whitespace-nowrap ${activeCategory === cat ? 'bg-blue-500 text-white' : 'text-gray-300 hover:text-white'}`}>{cat}</button>))}</div></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredTemplates.map(template => (<div key={template.id} className="glass-pane p-6 rounded-2xl flex flex-col"><h3 className="text-lg font-bold text-shadow">{template.title}</h3><p className="text-sm text-gray-300 mt-2 flex-grow text-shadow">{template.description}</p><div className="border-t border-white/20 mt-4 pt-4 flex justify-between items-center"><span className="text-sm font-semibold text-gray-400">{template.category}</span><div className="flex gap-2">{template.files.docx && <DownloadButton url={template.files.docx} format="docx" />}{template.files.pdf && <DownloadButton url={template.files.pdf} format="pdf" />}</div></div></div>))}</div>
-                </PageWrapper>
-            );
-        };
-        
-        // --- SupportPage Component ---
-        const SupportPage = () => {
-            const [activeTab, setActiveTab] = useState('assistant');
-            const KnowledgeBaseView = () => {
-                const [articles, setArticles] = useState([]);
-                useEffect(() => { setArticles(mockKnowledgeBase.data); }, []);
-                return (<div className="space-y-4">{articles.map(article => (<div key={article.id} className="glass-pane p-4 rounded-2xl"><h3 className="font-bold text-shadow">{article.title}</h3><p className="text-sm text-gray-300 mt-1">{article.category}</p></div>))}</div>);
-            };
-            const AssistantView = () => {
-                const [chatHistory, setChatHistory] = useState([{ role: 'assistant', text: 'Hallo! Ich bin dein KI-Assistent für das Musikbusiness. Frag mich alles zu Veröffentlichungen, Marketing oder Branchen-Insights.' }]);
-                const [inputValue, setInputValue] = useState('');
-                const [isLoading, setIsLoading] = useState(false);
-                const chatEndRef = useRef(null);
+                            {/* Desktop Navigation */}
+                            <div className="hidden md:block">
+                                <div className="ml-10 flex items-baseline space-x-4">
+                                    {navItems.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => setActivePage(item.id)}
+                                            className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
+                                                activePage === item.id
+                                                    ? 'bg-white/20 text-white'
+                                                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            <Icon name={item.icon} className="w-4 h-4" />
+                                            {item.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                useEffect(() => {
-                    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-                }, [chatHistory]);
-
-                const handleSendMessage = async (e) => {
-                    e.preventDefault();
-                    if (!inputValue.trim() || isLoading) return;
-
-                    const userMessage = { role: 'user', text: inputValue };
-                    setChatHistory(prev => [...prev, userMessage]);
-                    setInputValue('');
-                    setIsLoading(true);
-
-                    try {
-                        // Prüfe ob Backend verfügbar ist
-                        const apiConfig = window.apiConfig;
-                        
-                        if (!apiConfig || !apiConfig.hasBackend) {
-                            // Demo-Modus: Simuliere KI-Antwort
-                            setTimeout(() => {
-                                const demoResponses = [
-                                    "Im Demo-Modus kann ich grundlegende Fragen beantworten. Für echte KI-Unterstützung benötigen Sie eine Backend-Verbindung.",
-                                    "Das ist eine interessante Frage! Im Vollmodus würde ich Ihnen detaillierte Musikbusiness-Strategien vorschlagen.",
-                                    "Für Musikmarketing empfehle ich: 1) Zielgruppe definieren, 2) Social Media nutzen, 3) Collaborations eingehen. (Demo-Antwort)",
-                                    "Streaming-Plattformen sind wichtig für die Reichweite. Spotify, Apple Music und YouTube Music sollten Priorität haben. (Demo-Modus)"
-                                ];
-                                
-                                const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
-                                setChatHistory(prev => [...prev, { 
-                                    role: 'assistant', 
-                                    text: `${randomResponse}\n\n💡 Hinweis: Dies ist eine Demo-Antwort. Starten Sie das Backend für echte KI-Unterstützung.`
-                                }]);
-                                setIsLoading(false);
-                            }, 1500); // Simuliere Verarbeitungszeit
-                            return;
-                        }
-
-                        // DoS-Schutz: Verwende sichere API-Request mit Queue
-                        const result = await apiQueue.add(async () => {
-                            return await apiRetry(async () => {
-                                const response = await safeApiRequest(`${apiConfig.baseUrl}/api/gemini/chat`, {
-                                    method: 'POST',
-                                    headers: { 
-                                        'Content-Type': 'application/json',
-                                        'Accept': 'application/json'
-                                    },
-                                    body: JSON.stringify({ message: userMessage.text })
-                                }, 30000); // 30s Timeout für AI-Requests
-
-                                return await response.json();
-                            }, 3, 2000); // 3 Versuche, 2s base delay
-                        });
-
-                        const botResponseText = result.response || "Entschuldigung, ich konnte keine Antwort generieren.";
-                        setChatHistory(prev => [...prev, { role: 'assistant', text: botResponseText }]);
-
-                    } catch (error) {
-                        console.error("Error with Backend API:", error);
-                        
-                        let errorMessage = 'Entschuldigung, es gab ein Problem. Bitte versuche es später erneut.';
-                        
-                        if (error.message.includes('Backend-Verbindung')) {
-                            errorMessage = 'Keine Verbindung zum Server. Die Anwendung läuft im Demo-Modus.';
-                        } else if (error.message.includes('429')) {
-                            errorMessage = 'Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen es erneut.';
-                        } else if (error.message.includes('timeout')) {
-                            errorMessage = 'Anfrage-Timeout. Der Server braucht zu lange zum Antworten.';
-                        } else if (error.message.includes('Request timeout')) {
-                            errorMessage = 'Verbindungs-Timeout. Bitte prüfen Sie Ihre Internetverbindung.';
-                        }
-                        
-                        setChatHistory(prev => [...prev, { role: 'assistant', text: errorMessage }]);
-                    } finally {
-                        setIsLoading(false);
-                    }
-                };
-
-                return (
-                    <div className="flex flex-col h-[70vh] glass-pane rounded-2xl">
-                        <div className="flex-grow p-6 overflow-y-auto">
-                            <div className="space-y-4">
-                                {chatHistory.map((msg, index) => (
-                                    <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                        {msg.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-blue-500 flex-shrink-0"></div>}
-                                        <div className={`max-w-full sm:max-w-xl p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white/10 text-gray-200'}`}>
-                                            <p className="text-sm whitespace-pre-wrap text-shadow">{msg.text}</p>
+                            {/* User Menu */}
+                            <div className="flex items-center gap-4">
+                                <button className="relative text-gray-300 hover:text-white">
+                                    <Icon name="bell" className="w-6 h-6" />
+                                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-gray-900"></span>
+                                </button>
+                                <div className="relative group">
+                                    <button className="flex items-center gap-2 text-gray-300 hover:text-white">
+                                        <img src={user?.photoURL || `https://placehold.co/32x32/EBF4FF/1a1a1a?text=${user?.displayName?.charAt(0) || 'U'}`} alt="User Avatar" className="w-8 h-8 rounded-full" />
+                                        <span className="hidden sm:block">{user?.displayName || 'User'}</span>
+                                    </button>
+                                    <div className="absolute right-0 mt-2 w-48 glass-pane rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                                        <div className="py-1">
+                                            <button onClick={() => setActivePage('profile')} className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white w-full text-left">
+                                                <Icon name="user" className="w-4 h-4 inline mr-2" />
+                                                Profil
+                                            </button>
+                                            <button onClick={handleSignOut} className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white w-full text-left">
+                                                <Icon name="logOut" className="w-4 h-4 inline mr-2" />
+                                                Abmelden
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
-                                {isLoading && (
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-blue-500"></div>
-                                        <div className="max-w-md p-3 rounded-lg bg-white/10 flex items-center space-x-1">
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
-                                            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={chatEndRef} />
+                                </div>
+
+                                {/* Mobile menu button */}
+                                <button
+                                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                    className="md:hidden text-gray-300 hover:text-white"
+                                >
+                                    <Icon name="menu" className="w-6 h-6" />
+                                </button>
                             </div>
                         </div>
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-white/20 flex items-center gap-3">
-                            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Stelle eine Frage..." className="w-full px-4 py-2 border border-white/20 rounded-full bg-white/10 text-white placeholder-gray-400" disabled={isLoading} />
-                            <button type="submit" className="bg-blue-500 text-white p-3 rounded-full disabled:bg-blue-400/50" disabled={isLoading}>
-                                <Icon name="send" className="w-5 h-5" />
-                            </button>
-                        </form>
-                    </div>
-                );
-            };
 
-            return (
-                <PageWrapper>
-                    <header className="text-center mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">Support Hub</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Finde Antworten oder frage unseren KI-Assistenten.</p></header>
-                    <div className="flex justify-center mb-6"><div className="glass-pane p-1 rounded-full flex"><button onClick={() => setActiveTab('kb')} className={`px-4 py-2 text-sm font-medium rounded-full ${activeTab === 'kb' ? 'bg-white/20' : ''}`}>Wissensdatenbank</button><button onClick={() => setActiveTab('assistant')} className={`px-4 py-2 text-sm font-medium rounded-full ${activeTab === 'assistant' ? 'bg-white/20' : ''}`}>KI-Assistent</button></div></div>
-                    {activeTab === 'kb' ? <KnowledgeBaseView /> : <AssistantView />}
-                </PageWrapper>
+                        {/* Mobile Navigation */}
+                        {mobileMenuOpen && (
+                            <div className="md:hidden">
+                                <div className="px-2 pt-2 pb-3 space-y-1 glass-pane rounded-lg mt-2">
+                                    {navItems.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => {
+                                                setActivePage(item.id);
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left flex items-center gap-2 ${
+                                                activePage === item.id
+                                                    ? 'bg-white/20 text-white'
+                                                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            <Icon name={item.icon} className="w-4 h-4" />
+                                            {item.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </nav>
             );
         };
-        
-        // --- LearningCenter Component (formerly TeamStartPage) ---
-        const LearningCenter = () => {
-            const [paths, setPaths] = useState([]);
-            const [selectedPath, setSelectedPath] = useState(null);
-            useEffect(() => { setPaths(mockLearningPaths); }, []);
-            const LearningPathDetail = ({ path, onBack }) => {
-                const [completedModules, setCompletedModules] = useState(['m1-1']);
-                const [activeModule, setActiveModule] = useState(path.modules[0]);
-                const handleCompleteModule = (moduleId) => { if (!completedModules.includes(moduleId)) { setCompletedModules(prev => [...prev, moduleId]); const currentIndex = path.modules.findIndex(m => m.id === moduleId); if (currentIndex + 1 < path.modules.length) { setActiveModule(path.modules[currentIndex + 1]); } } };
-                const progress = (completedModules.length / path.modules.length) * 100;
-                const moduleIcons = { video: "playCircle", text: "fileText", quiz: "helpCircle" };
-                const QuizModule = ({ module, onComplete }) => {
-                    const [selectedAnswer, setSelectedAnswer] = useState(null);
-                    return (<div className="p-6"><h3 className="font-bold text-lg mb-4 text-shadow">{module.content.question}</h3><div className="space-y-3 mb-4">{module.content.options.map((option, index) => (<button key={index} onClick={() => setSelectedAnswer(index)} className={`w-full text-left p-3 border border-white/20 rounded-lg ${selectedAnswer === index ? 'bg-blue-400/50' : 'bg-white/10'}`}>{option}</button>))}</div><button onClick={() => { if(selectedAnswer === module.content.correctAnswerIndex) onComplete(module.id) }} className="w-full p-2 bg-blue-500 text-white rounded-lg">Antwort prüfen</button></div>);
-                };
-                return (<div><button onClick={onBack} className="flex items-center gap-2 text-sm mb-4 text-gray-300 hover:text-white">
-                    <Icon name="arrowLeft" className="w-4 h-4" /> Zurück
-                </button>
-                <h2 className="text-2xl font-bold text-shadow">{path.title}</h2>
-                <div className="my-6">
-                    <div className="w-full bg-white/20 rounded-full h-2.5">
-                        <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
-                    </div>
-                </div>
-                <div className="flex flex-col lg:flex-row gap-8">
-                    <div className="w-full lg:w-1/3">
-                        <h3 className="font-bold mb-3 text-shadow">Module</h3>
-                        <div className="space-y-2">
-                            {path.modules.map(module => (
-                                <button key={module.id} onClick={() => setActiveModule(module)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 ${activeModule.id === module.id ? 'bg-white/20' : 'hover:bg-white/10'}`}>
-                                    {completedModules.includes(module.id) ? <Icon name="checkCircle" className="w-5 h-5 text-green-400" /> : <Icon name="circle" className="w-5 h-5 text-gray-400" />}
-                                    <Icon name={moduleIcons[module.type]} className="w-5 h-5" />
-                                    <span>{module.title}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="w-full lg:w-2/3 glass-pane rounded-2xl">
-                        {activeModule.type === 'quiz' ? <QuizModule module={activeModule} onComplete={handleCompleteModule} /> : <div className="p-6">{activeModule.content || `Inhalt für ${activeModule.title}`}<button onClick={() => handleCompleteModule(activeModule.id)} className="mt-4 p-2 bg-blue-500 text-white rounded">Als erledigt markieren</button></div>}
-                    </div>
-                </div>
-            </div>);
-            };
-            if (selectedPath) return <PageWrapper><LearningPathDetail path={selectedPath} onBack={() => setSelectedPath(null)} /></PageWrapper>;
-            return (<PageWrapper><header className="text-center mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">Learning Center</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Wähle deinen Lernpfad.</p></header><div className="space-y-4">{paths.map(path => (<button key={path.id} onClick={() => setSelectedPath(path)} className="w-full text-left p-6 glass-pane rounded-2xl shadow-md hover:bg-white/20 transition"><span className="bg-blue-500/50 text-blue-100 text-xs font-semibold px-2.5 py-0.5 rounded-full mb-2 inline-block">{path.targetRole}</span><h3 className="text-xl font-bold text-shadow">{path.title}</h3><p className="text-gray-300 mt-1 text-shadow">{path.description}</p></button>))}</div></PageWrapper>);
-        };
-        
-        // --- ComplyCheckPage Component ---
-        const ComplyCheckPage = ({ onTestComplete }) => {
-            const [activeTool, setActiveTool] = useState(null);
-            const DsgvoSelfTest = () => {
-                const [answers, setAnswers] = useState({});
-                const [isFinished, setIsFinished] = useState(false);
-                const handleAnswer = (qId, answer) => setAnswers(prev => ({ ...prev, [qId]: answer }));
-                const score = Object.values(answers).filter(Boolean).length;
 
-                const handleFinish = () => {
-                    setIsFinished(true);
-                    onTestComplete(`${score} / ${dsgvoQuestions.length}`);
-                };
-
-                return (<div className="glass-pane p-6 rounded-2xl"><h3 className="text-xl font-bold mb-4 text-shadow">DSGVO-Selbsttest</h3>{!isFinished ? (<div><div className="space-y-6">{dsgvoQuestions.map(q => (<div key={q.id}><p className="font-semibold mb-2 text-shadow">{q.text}</p><div className="flex gap-4"><button onClick={() => handleAnswer(q.id, true)} className={`flex items-center gap-2 p-2 rounded-lg border-2 ${answers[q.id] === true ? 'border-green-400 bg-green-500/20' : 'border-white/20'}`}><Icon name="check" className="w-5 h-5 text-green-400" /> Ja</button><button onClick={() => handleAnswer(q.id, false)} className={`flex items-center gap-2 p-2 rounded-lg border-2 ${answers[q.id] === false ? 'border-red-400 bg-red-500/20' : 'border-white/20'}`}><Icon name="x" className="w-5 h-5 text-red-400" /> Nein</button></div></div>))}</div><button onClick={handleFinish} disabled={Object.keys(answers).length !== dsgvoQuestions.length} className="mt-8 w-full p-3 bg-blue-500 text-white rounded-lg disabled:bg-gray-500">Auswertung</button></div>) : (<div className="text-center"><h4 className="text-lg font-bold text-shadow">Ergebnis</h4><p className="text-5xl font-bold my-4 text-shadow">{score} / {dsgvoQuestions.length}</p><button onClick={() => { setIsFinished(false); setAnswers({}); }} className="mt-6 text-blue-400">Wiederholen</button></div>)}</div>);
-            };
-            const AvvGenerator = () => {
-                const [generated, setGenerated] = useState(false);
-                return (<div className="glass-pane p-6 rounded-2xl"><h3 className="text-xl font-bold mb-4 text-shadow">AV-Vertrag-Generator</h3>{!generated ? (<form onSubmit={(e) => { e.preventDefault(); setGenerated(true); }} className="space-y-4"><div><label className="block text-sm text-shadow">Name des Dienstleisters</label><input type="text" required className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" /></div><div><label className="block text-sm text-shadow">Zweck der Verarbeitung</label><input type="text" required className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" /></div><button type="submit" className="w-full p-3 bg-blue-500 text-white rounded-lg">Generieren</button></form>) : (<div><h4 className="font-bold mb-2 text-shadow">Generierte Vorlage</h4><pre className="p-4 bg-black/20 rounded-md text-xs overflow-x-auto">... Vertragstext ...</pre><button onClick={() => setGenerated(false)} className="mt-4 w-full p-2 border border-white/20 rounded-lg">Neue Vorlage</button></div>)}</div>);
-            };
-            if (activeTool) return <PageWrapper><button onClick={() => setActiveTool(null)} className="mb-4 flex items-center gap-1 text-gray-300 hover:text-white"><Icon name="arrowLeft" className="w-4 h-4" /> Zurück</button>{activeTool === 'dsgvo' ? <DsgvoSelfTest /> : <AvvGenerator />}</PageWrapper>;
-            return (<PageWrapper><header className="text-center mb-8"><h1 className="text-3xl sm:text-4xl font-bold text-shadow">ComplyCheck</h1><p className="text-lg text-gray-300 mt-2 text-shadow">Tools für deine DSGVO-Compliance.</p></header><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><button onClick={() => setActiveTool('dsgvo')} className="glass-pane p-8 text-left rounded-2xl shadow-md hover:bg-white/20 transition"><Icon name="shieldCheck" className="w-10 h-10 text-blue-300 mb-4" /><h2 className="text-xl font-bold text-shadow">DSGVO-Selbsttest</h2></button><button onClick={() => setActiveTool('avv')} className="glass-pane p-8 text-left rounded-2xl shadow-md hover:bg-white/20 transition"><Icon name="fileText" className="w-10 h-10 text-green-300 mb-4" /><h2 className="text-xl font-bold text-shadow">AV-Vertrag-Generator</h2></button></div></PageWrapper>);
-        };
-
-        // --- ProfilePage Component ---
-        const ProfilePage = ({setActivePage}) => {
+        // Main App Component
+        const MainApp = () => {
             const { user } = useAuth();
-            const [displayName, setDisplayName] = useState(user?.displayName || '');
-            const [newPassword, setNewPassword] = useState('');
-            const [message, setMessage] = useState('');
+            const [activePage, setActivePage] = useState('dashboard');
+            const [projects, setProjects] = useState(initialProjects);
+            const [selectedProject, setSelectedProject] = useState(null);
+            const [activities] = useState([
+                { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' },
+                { id: 'act_2', type: 'file_uploaded', text: 'Cover-Artwork hochgeladen', project: 'Album Release', time: 'vor 4 Stunden' },
+                { id: 'act_3', type: 'task_completed', text: 'Social Media Plan erstellt', project: 'Marketing Campaign', time: 'gestern' },
+                { id: 'act_4', type: 'comment_added', text: 'Feedback zu Moodboard erhalten', project: 'Album Release', time: 'vor 2 Tagen' }
+            ]);
+            const [complyCheckScore, setComplyCheckScore] = useState('3 / 3');
 
-            const handleProfileUpdate = async (e) => {
-                e.preventDefault();
-                try {
-                    await window.firebase.updateProfile(window.firebase.auth.currentUser, { displayName });
-                    setMessage('Profil erfolgreich aktualisiert!');
-                } catch (error) {
-                    setMessage(`Fehler: ${error.message}`);
+            const handleCreateProject = (name) => {
+                const newProject = {
+                    id: `proj_${Date.now()}`,
+                    name: name,
+                    files: [],
+                    moodboards: [{ id: `mood_${Date.now()}`, title: 'Hauptmoodboard', items: [] }],
+                    taskboards: [{ 
+                        id: `task_${Date.now()}`, 
+                        title: 'Projekt Tasks', 
+                        sections: [
+                            { id: 'sec_todo', title: 'To Do', tasks: [] },
+                            { id: 'sec_progress', title: 'In Progress', tasks: [] },
+                            { id: 'sec_done', title: 'Done', tasks: [] }
+                        ] 
+                    }]
+                };
+                setProjects(prev => [...prev, newProject]);
+            };
+
+            const handleSelectProject = (projectId) => {
+                const project = projects.find(p => p.id === projectId);
+                setSelectedProject(project);
+                setActivePage('project-detail');
+            };
+
+            const handleProjectUpdate = (updatedProject) => {
+                setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+                setSelectedProject(updatedProject);
+            };
+
+            const handleBackToProjects = () => {
+                setSelectedProject(null);
+                setActivePage('projects');
+            };
+
+            const renderPage = () => {
+                switch (activePage) {
+                    case 'dashboard':
+                    default:
+                        return <MainDashboard setActivePage={setActivePage} activities={activities} complyCheckScore={complyCheckScore} />;
+                    case 'projects':
+                        return <ProjectListPage projects={projects} setProjects={setProjects} onSelectProject={handleSelectProject} onCreateProject={handleCreateProject} />;
+                    case 'project-detail':
+                        return selectedProject ? <ProjectDetailPage project={selectedProject} setProjectData={handleProjectUpdate} onBack={handleBackToProjects} /> : <ProjectListPage projects={projects} setProjects={setProjects} onSelectProject={handleSelectProject} onCreateProject={handleCreateProject} />;
+                    case 'analytics':
+                        return <AnalyticsPage />;
+                    case 'library':
+                        return <LibraryPage />;
+                    case 'support':
+                        return <SupportPage />;
+                    case 'learningcenter':
+                        return <LearningCenter />;
+                    case 'comply':
+                        return <ComplyCheckPage onTestComplete={setComplyCheckScore} />;
+                    case 'profile':
+                        return <ProfilePage setActivePage={setActivePage} />;
                 }
             };
 
-            const handlePasswordChange = async (e) => {
-                e.preventDefault();
-                try {
-                    // Prüfe ob im Demo-Modus
-                    if (window.apiConfig && window.apiConfig.demoMode) {
-                        setMessage('Passwort-Änderung im Demo-Modus nicht verfügbar. Starten Sie das Backend für volle Funktionalität.');
-                        return;
-                    }
-                    
-                    await window.firebase.updatePassword(window.firebase.auth.currentUser, newPassword);
-                    setMessage('Passwort erfolgreich geändert!');
-                    setNewPassword('');
-                } catch (error) {
-                    setMessage(`Fehler: ${error.message}`);
-                }
-            };
-            
-            return (
-                <PageWrapper>
-                    <h1 className="text-3xl sm:text-4xl font-bold mb-8 text-shadow">Dein Profil</h1>
-                    {message && <p className="mb-4 p-3 glass-pane rounded-lg text-center text-shadow">{message}</p>}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="glass-pane p-6 rounded-2xl">
-                            <h2 className="text-2xl font-bold mb-4 text-shadow">Profilinformationen</h2>
-                            <form onSubmit={handleProfileUpdate} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Anzeigename</label>
-                                    <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">E-Mail</label>
-                                    <p className="mt-1 text-shadow">{user?.email}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Profilbild</label>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <img src={user?.photoURL || `https://placehold.co/100x100/EBF4FF/1a1a1a?text=${user?.displayName?.charAt(0) || 'U'}`} className="w-16 h-16 rounded-full" />
-                                        <input type="file" className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/50 file:text-blue-100 hover:file:bg-blue-500/80 cursor-pointer" disabled title="Funktion noch nicht implementiert" />
-                                    </div>
-                                </div>
-                                <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Speichern</button>
-                            </form>
-                        </div>
-                        <div className="glass-pane p-6 rounded-2xl">
-                            <h2 className="text-2xl font-bold mb-4 text-shadow">Passwort ändern</h2>
-                            <form onSubmit={handlePasswordChange} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Neues Passwort</label>
-                                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" />
-                                </div>
-                                <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded-lg font-bold">Passwort ändern</button>
-                            </form>
-                        </div>
-                    </div>
-                </PageWrapper>
-            );
-        };
-        
-        // --- APP COMPONENT ---
-        
-        // Final App Component mit Error-Boundaries
-        const App = () => {
-            const [activeAuthPage, setActiveAuthPage] = useState('landing');
-            const [appInitialized, setAppInitialized] = useState(false);
-
+            // Initialize security measures
             useEffect(() => {
-                // App-Initialisierung mit Timeout
-                const initTimer = setTimeout(() => {
-                    console.log('✅ App initialization complete');
-                    setAppInitialized(true);
-                }, 1000);
-
-                return () => clearTimeout(initTimer);
+                preventDataLeakage();
             }, []);
 
-            // Loading Screen
-            if (!appInitialized) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
-                        <div className="glass-pane p-8 rounded-2xl text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                            <p className="text-white text-lg font-semibold">Musik-Plattform wird geladen...</p>
-                        </div>
-                    </div>
-                );
-            }
-
             return (
-                <ErrorBoundary>
-                    <AuthProvider>
-                        <AppContent 
-                            activeAuthPage={activeAuthPage} 
-                            setActiveAuthPage={setActiveAuthPage} 
-                        />
-                    </AuthProvider>
-                </ErrorBoundary>
+                <DynamicGradientBackground>
+                    <div className="min-h-screen">
+                        <Navigation activePage={activePage} setActivePage={setActivePage} user={user} />
+                        <main className="pb-8">
+                            {renderPage()}
+                        </main>
+                    </div>
+                </DynamicGradientBackground>
             );
         };
 
-        // App Content Handler
-        const AppContent = ({ activeAuthPage, setActiveAuthPage }) => {
-            const { user } = useAuth();
-
-            const handleLogin = (userData) => {
-                console.log('✅ User logged in:', userData);
-                setActiveAuthPage('app');
-            };
-
-            const handleRegister = (userData) => {
-                console.log('✅ User registered:', userData);
-                setActiveAuthPage('app');
-            };
-
-            // Bestimme welche Seite angezeigt werden soll
-            if (user || activeAuthPage === 'app') {
-                return <MainApp />;
-            }
-
-            switch (activeAuthPage) {
-                case 'login':
-                    return <LoginPage onLogin={handleLogin} setActiveAuthPage={setActiveAuthPage} />;
-                case 'register':
-                    return <RegisterPage onRegister={handleRegister} setActiveAuthPage={setActiveAuthPage} />;
-                default:
-                    return <LandingPage setActiveAuthPage={setActiveAuthPage} />;
-            }
-        };
-
-        // --- RENDER APP ---
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        // --- AUTH COMPONENTS ---
         
-        // Sichere App-Renderung mit Fallback
-        try {
-            root.render(<App />);
-            console.log('🚀 App successfully rendered');
-        } catch (error) {
-            console.error('🚨 Critical render error:', error);
-            
-            // Emergency Fallback
-            document.getElementById('root').innerHTML = `
-                <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #7c3aed 100%); color: white; font-family: system-ui;">
-                    <div style="background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; max-width: 400px;">
-                        <h1>🚨 Kritischer Fehler</h1>
-                        <p>Die Anwendung konnte nicht geladen werden.</p>
-                        <div style="margin-top: 1rem;">
-                            <a href="demo.html" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; margin-right: 0.5rem;">Demo öffnen</a>
-                            <a href="emergency.html" style="background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none;">Notfallmodus</a>
+        // Login Page Component
+        const LoginPage = ({ onLogin, setActiveAuthPage }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [message, setMessage] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setMessage('');
+
+                try {
+                    if (window.firebase && window.firebase.signInWithEmailAndPassword) {
+                        const userCredential = await window.firebase.signInWithEmailAndPassword(
+                            window.firebase.auth, 
+                            email, 
+                            password
+                        );
+                        console.log('✅ Login successful:', userCredential.user);
+                        onLogin(userCredential.user);
+                    } else {
+                        throw new Error('Firebase Auth nicht verfügbar');
+                    }
+                } catch (error) {
+                    console.error('❌ Login error:', error);
+                    setMessage('Anmeldung fehlgeschlagen. Im Demo-Modus fortfahren.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <DynamicGradientBackground>
+                    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                        <div className="max-w-md w-full space-y-8">
+                            <div className="text-center">
+                                <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="mx-auto h-24 w-24 object-contain" onError={(e) => { e.target.src='https://placehold.co/96x96/ffffff/000000?text=Logo'; }} />
+                                <h2 className="mt-6 text-3xl font-extrabold text-white text-shadow">
+                                    Bei deinem Konto anmelden
+                                </h2>
+                            </div>
+                            <div className="glass-pane rounded-2xl p-8">
+                                <form className="space-y-6" onSubmit={handleSubmit}>
+                                    {message && (
+                                        <div className="p-3 rounded-lg text-sm text-center bg-blue-500/20 text-blue-100">
+                                            {message}
+                                        </div>
+                                    )}
+                                    
+                                    <div>
+                                        <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+                                            E-Mail-Adresse
+                                        </label>
+                                        <input
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="deine@email.com"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                                            Passwort
+                                        </label>
+                                        <input
+                                            id="password"
+                                            name="password"
+                                            type="password"
+                                            required
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                            {loading ? 'Wird geladen...' : 'Anmelden'}
+                                        </button>
+                                    </div>
+                                </form>
+                                
+                                <div className="mt-6 text-center space-y-2">
+                                    <button
+                                        onClick={() => setActiveAuthPage('register')}
+                                        className="text-sm text-blue-400 hover:text-blue-300"
+                                    >
+                                        Noch kein Konto? Registrieren
+                                    </button>
+                                    <br />
+                                    <button
+                                        onClick={() => setActiveAuthPage('landing')}
+                                        className="text-sm text-gray-400 hover:text-gray-300"
+                                    >
+                                        ← Zurück zur Startseite
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-        }
+                </DynamicGradientBackground>
+            );
+        };
+
+        // Register Page Component  
+        const RegisterPage = ({ onRegister, setActiveAuthPage }) => {
+            const [formData, setFormData] = useState({
+                displayName: '',
+                email: '',
+                password: '',
+                confirmPassword: ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [message, setMessage] = useState('');
+
+            const handleInputChange = (e) => {
+                setFormData(prev => ({
+                    ...prev,
+                    [e.target.name]: e.target.value
+                }));
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setMessage('');
+
+                if (formData.password !== formData.confirmPassword) {
+                    setMessage('Passwörter stimmen nicht überein');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    if (window.firebase && window.firebase.createUserWithEmailAndPassword) {
+                        const userCredential = await window.firebase.createUserWithEmailAndPassword(
+                            window.firebase.auth,
+                            formData.email,
+                            formData.password
+                        );
+
+                        await window.firebase.updateProfile(userCredential.user, {
+                            displayName: formData.displayName
+                        });
+
+                        console.log('✅ Registration successful:', userCredential.user);
+                        onRegister(userCredential.user);
+                    } else {
+                        throw new Error('Firebase Auth nicht verfügbar');
+                    }
+                } catch (error) {
+                    console.error('❌ Registration error:', error);
+                    setMessage('Registrierung fehlgeschlagen. Im Demo-Modus fortfahren.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <DynamicGradientBackground>
+                    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                        <div className="max-w-md w-full space-y-8">
+                            <div className="text-center">
+                                <img src="https://github.com/mmmaaalllttteee/meine-musik-plattform/blob/main/wmitw_web.png?raw=true" alt="Logo" className="mx-auto h-24 w-24 object-contain" onError={(e) => { e.target.src='https://placehold.co/96x96/ffffff/000000?text=Logo'; }} />
+                                <h2 className="mt-6 text-3xl font-extrabold text-white text-shadow">
+                                    Kostenloses Konto erstellen
+                                </h2>
+                            </div>
+                            <div className="glass-pane rounded-2xl p-8">
+                                <form className="space-y-6" onSubmit={handleSubmit}>
+                                    {message && (
+                                        <div className="p-3 rounded-lg text-sm text-center bg-blue-500/20 text-blue-100">
+                                            {message}
+                                        </div>
+                                    )}
+                                    
+                                    <div>
+                                        <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
+                                            Vollständiger Name
+                                        </label>
+                                        <input
+                                            id="displayName"
+                                            name="displayName"
+                                            type="text"
+                                            required
+                                            value={formData.displayName}
+                                            onChange={handleInputChange}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="Max Mustermann"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+                                            E-Mail-Adresse
+                                        </label>
+                                        <input
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            required
+                                            value={formData.email}
+                                            onChange={handleInputChange}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="deine@email.com"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                                            Passwort
+                                        </label>
+                                        <input
+                                            id="password"
+                                            name="password"
+                                            type="password"
+                                            required
+                                            value={formData.password}
+                                            onChange={handleInputChange}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
+                                            Passwort bestätigen
+                                        </label>
+                                        <input
+                                            id="confirmPassword"
+                                            name="confirmPassword"
+                                            type="password"
+                                            required
+                                            value={formData.confirmPassword}
+                                            onChange={handleInputChange}
+                                            className="mt-1 w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder-gray-400"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                            {loading ? 'Wird geladen...' : 'Kostenloses Konto erstellen'}
+                                        </button>
+                                    </div>
+                                </form>
+                                
+                                <div className="mt-6 text-center space-y-2">
+                                    <button
+                                        onClick={() => setActiveAuthPage('login')}
+                                        className="text-sm text-blue-400 hover:text-blue-300"
+                                    >
+                                        Bereits ein Konto? Anmelden
+                                    </button>
+                                    <br />
+                                    <button
+                                        onClick={() => setActiveAuthPage('landing')}
+                                        className="text-sm text-gray-400 hover:text-gray-300"
+                                    >
+                                        ← Zurück zur Startseite
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </DynamicGradientBackground>
+            );
+        };
+
+        // Render die App in den Root-Container
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <React.StrictMode>
+                <AuthProvider>
+                    <ErrorBoundary>
+                        <MainApp />
+                    </ErrorBoundary>
+                </AuthProvider>
+            </React.StrictMode>
+        );
     </script>
 </body>
 </html>
