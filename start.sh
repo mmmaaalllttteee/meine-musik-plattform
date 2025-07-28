@@ -40,3 +40,22 @@ echo "Drücken Sie Ctrl+C zum Beenden"
 echo "================================"
 
 npm start
+
+echo "🚀 STARTE MUSIK-PLATTFORM"
+echo "========================="
+
+cd /workspaces/meine-musik-plattform
+
+echo "📦 Führe npm install aus..."
+npm install
+
+if [ $? -eq 0 ]; then
+    echo "✅ Dependencies erfolgreich installiert!"
+    echo ""
+    echo "🎵 Starte Express-Server..."
+    npm start
+else
+    echo "❌ npm install fehlgeschlagen"
+    echo "🔄 Versuche Server trotzdem zu starten..."
+    npm start
+fi
