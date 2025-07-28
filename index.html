@@ -579,19 +579,40 @@
                         }
                     }
                     
-                    // URL-Validierung (Multi-Character-sicher)
+                    // URL-Validierung (Multi-Character-sicher mit vollständiger Schema-Prüfung)
                     if (rule.type === 'url') {
                         try {
+                            // Verwende die erweiterte sichere URL-Validierung
                             const validatedUrl = window.multiCharacterSanitizer ? 
-                                window.multiCharacterSanitizer.validateUrl(sanitizedValue) : 
-                                new URL(sanitizedValue);
+                                window.multiCharacterSanitizer.validateUrl(sanitizedValue, {
+                                    allowRelative: rule.allowRelative !== false,
+                                    requireHttps: rule.requireHttps === true,
+                                    maxLength: rule.maxLength || 2048,
+                                    allowedDomains: rule.allowedDomains,
+                                    blockedDomains: rule.blockedDomains
+                                }) : 
+                                (() => {
+                                    // Fallback mit Basic-URL-Validierung
+                                    const urlObj = new URL(sanitizedValue);
+                                    
+                                    // Basis-Schema-Prüfung als Fallback
+                                    const allowedSchemes = ['http:', 'https:', 'ftp:', 'ftps:', 'mailto:', 'tel:', 'sms:'];
+                                    if (!allowedSchemes.includes(urlObj.protocol)) {
+                                        throw new Error(`URL-Schema '${urlObj.protocol}' ist nicht erlaubt`);
+                                    }
+                                    
+                                    return urlObj.toString();
+                                })();
                             
-                            // Zusätzliche Sicherheitsprüfungen
-                            if (validatedUrl.protocol !== 'https:' && validatedUrl.protocol !== 'http:') {
-                                errors[field] = 'Unsicheres URL-Protokoll';
+                            // Zusätzliche Längenbegrenzung nach Validierung
+                            if (typeof validatedUrl === 'string' && validatedUrl.length > (rule.maxLength || 2048)) {
+                                errors[field] = `URL ist zu lang (max. ${rule.maxLength || 2048} Zeichen)`;
+                                return;
                             }
+                            
                         } catch (error) {
-                            errors[field] = error.message || 'Ungültige URL';
+                            errors[field] = error.message || 'Ungültige URL oder unsicheres Schema';
+                            return;
                         }
                     }
                     
@@ -712,7 +733,7 @@
                 bell: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
                 briefcase: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>,
                 fileText: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
-                checkCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+                checkCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
                 image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>,
                 award: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 17 17 23 15.79 13.88"></polyline></svg>,
                 search: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
@@ -1341,7 +1362,14 @@
                                         {file.type === 'file' ? (
                                             <p className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                         ) : (
-                                             <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">{file.url}</a>
+                                             <SecureLink 
+                                                href={file.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="text-xs text-blue-400 hover:underline"
+                                            >
+                                                {file.url}
+                                            </SecureLink>
                                         )}
                                     </div>
                                 </div>
@@ -1359,11 +1387,67 @@
         const AddLinkModal = ({ onAdd, onClose }) => {
             const [title, setTitle] = useState('');
             const [url, setUrl] = useState('');
+            const [urlError, setUrlError] = useState('');
+
+            const handleUrlChange = (e) => {
+                const newUrl = e.target.value;
+                setUrl(newUrl);
+                
+                // Real-time URL-Validierung
+                if (newUrl.trim()) {
+                    try {
+                        if (window.multiCharacterSanitizer) {
+                            window.multiCharacterSanitizer.validateUrl(newUrl.trim(), {
+                                requireHttps: false,
+                                maxLength: 2048,
+                                allowRelative: false
+                            });
+                        } else {
+                            // Fallback-Validierung
+                            new URL(newUrl.trim());
+                        }
+                        setUrlError('');
+                    } catch (error) {
+                        setUrlError(error.message || 'Ungültige URL');
+                    }
+                } else {
+                    setUrlError('');
+                }
+            };
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (title.trim() && url.trim()) {
-                    onAdd(title, url);
+                
+                if (!title.trim()) {
+                    alert('Titel ist erforderlich');
+                    return;
+                }
+                
+                if (!url.trim()) {
+                    alert('URL ist erforderlich');
+                    return;
+                }
+                
+                // Finale URL-Validierung vor dem Hinzufügen
+                try {
+                    const sanitizedTitle = window.multiCharacterSanitizer ? 
+                        window.multiCharacterSanitizer.sanitize(title.trim(), { 
+                            maxLength: 200, 
+                            allowHtml: false 
+                        }) : 
+                        title.trim();
+                    
+                    const validatedUrl = window.multiCharacterSanitizer ? 
+                        window.multiCharacterSanitizer.validateUrl(url.trim(), {
+                            requireHttps: false,
+                            maxLength: 2048,
+                            allowRelative: false
+                        }) : 
+                        new URL(url.trim()).toString();
+                    
+                    onAdd(sanitizedTitle, validatedUrl);
+                } catch (error) {
+                    alert(`Fehler beim Hinzufügen des Links: ${error.message}`);
                 }
             };
 
@@ -1371,13 +1455,46 @@
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
                     <div className="glass-pane rounded-2xl w-full max-w-md text-white" onClick={e => e.stopPropagation()}>
                         <div className="p-6">
-                                                       <h3 className="text-lg font-bold mb-4 text-shadow">Link hinzufügen</h3>
+                            <h3 className="text-lg font-bold mb-4 text-shadow">Link hinzufügen</h3>
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Titel" className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
-                                <input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" required />
+                                <div>
+                                    <input 
+                                        type="text" 
+                                        value={title} 
+                                        onChange={e => setTitle(e.target.value)} 
+                                        placeholder="Titel" 
+                                        maxLength={200}
+                                        className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400" 
+                                        required 
+                                    />
+                                </div>
+                                <div>
+                                    <input 
+                                        type="url" 
+                                        value={url} 
+                                        onChange={handleUrlChange} 
+                                        placeholder="https://..." 
+                                        maxLength={2048}
+                                        className={`w-full p-2 rounded-lg bg-white/10 border text-white placeholder-gray-400 ${
+                                            urlError ? 'border-red-500' : 'border-white/20'
+                                        }`}
+                                        required 
+                                    />
+                                    {urlError && (
+                                        <p className="text-red-400 text-xs mt-1">{urlError}</p>
+                                    )}
+                                </div>
                                 <div className="flex justify-end gap-2">
-                                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm">Abbrechen</button>
-                                    <button type="submit" className="bg-blue-500 px-4 py-2 rounded-lg text-sm font-bold">Hinzufügen</button>
+                                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm">
+                                        Abbrechen
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        disabled={!!urlError || !title.trim() || !url.trim()}
+                                        className="bg-blue-500 px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Hinzufügen
+                                    </button>
                                 </div>
                             </form>
                         </div>
