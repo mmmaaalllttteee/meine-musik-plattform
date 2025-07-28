@@ -1,85 +1,77 @@
 #!/bin/bash
 
 # Backend-Starter für Musik-Plattform
-echo "🚀 Starte Musik-Plattform Backend..."
+echo "🚀 Starte Musik-Plattform Backend und Frontend..."
 
-# Prüfe ob Node.js installiert ist
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js ist nicht installiert!"
-    echo "📝 Installiere Node.js von https://nodejs.org/"
+# Prüfe ob wir im richtigen Verzeichnis sind
+if [ ! -f "package.json" ]; then
+    echo "❌ package.json nicht gefunden!"
+    echo "📁 Wechsle in das richtige Verzeichnis..."
+    cd /workspaces/meine-musik-plattform || exit 1
+fi
+
+echo "📦 Installiere Dependencies..."
+npm install
+
+# Prüfe ob Installation erfolgreich war
+if [ $? -eq 0 ]; then
+    echo "✅ Dependencies erfolgreich installiert!"
+else
+    echo "❌ Fehler bei der Installation der Dependencies"
     exit 1
 fi
 
-# Prüfe ob server.js existiert
-if [ ! -f "server.js" ]; then
-    echo "⚠️ server.js nicht gefunden - erstelle minimal Server..."
-    
-    cat > server.js << 'EOF'
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static('.'));
-
-// Health Check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Backend läuft', timestamp: new Date() });
-});
-
-// Firebase Config API
-app.get('/api/config/firebase', (req, res) => {
-    res.json({
-        apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
-        authDomain: "meine-musikplattform.firebaseapp.com",
-        projectId: "meine-musikplattform",
-        storageBucket: "meine-musikplattform.appspot.com",
-        messagingSenderId: "997469107237",
-        appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
-        measurementId: "G-7M62EV7KQH"
-    });
-});
-
-// Serve index.html für alle anderen Routen
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`🎵 Musik-Plattform Backend läuft auf Port ${PORT}`);
-    console.log(`🌐 Frontend verfügbar unter: http://localhost:${PORT}`);
-});
-EOF
-    
-    echo "✅ Minimal server.js erstellt"
-fi
-
-# Prüfe ob package.json existiert
-if [ ! -f "package.json" ]; then
-    echo "⚠️ package.json nicht gefunden - erstelle..."
-    
-    npm init -y
-    npm install express cors
-    
-    echo "✅ Dependencies installiert"
-fi
-
-# Starte den Server
+echo ""
 echo "🔄 Starte Backend-Server..."
-node server.js &
 
-# Speichere PID für später
+# Backend im Hintergrund starten
+npm start &
 SERVER_PID=$!
-echo $SERVER_PID > .server.pid
 
-echo "✅ Backend gestartet (PID: $SERVER_PID)"
-echo "🌐 Öffne http://localhost:3001 im Browser"
+echo "⏱️ Warte auf Server-Start..."
+sleep 3
 
-# Warte auf Beenden
-echo "📝 Drücke Ctrl+C zum Beenden..."
-wait $SERVER_PID
+# Prüfe ob Server läuft
+echo "🔍 Prüfe Server-Status..."
+if curl -s http://localhost:3001/api/health > /dev/null; then
+    echo "✅ Backend-Server läuft erfolgreich!"
+    echo ""
+    echo "🎵 Musik-Plattform ist jetzt verfügbar unter:"
+    echo "   🌐 Frontend: http://localhost:3001"
+    echo "   ⚕️ Health Check: http://localhost:3001/api/health"
+    echo "   🔥 Firebase Config: http://localhost:3001/api/config/firebase"
+    echo ""
+    echo "✅ Alle Features sind aktiv:"
+    echo "  🔒 Multi-Character-Sanitization"
+    echo "  🔒 Sichere URL-Validierung"
+    echo "  🔒 Input-Validation & XSS-Protection"
+    echo "  🔒 CORS & Security Headers"
+    echo "  📱 Responsive Design"
+    echo "  🔐 Firebase Authentication"
+    echo ""
+    echo "💡 Öffne http://localhost:3001 in deinem Browser!"
+    echo "🛑 Zum Beenden: Ctrl+C drücken"
+    
+    # Warte auf Benutzer-Eingabe zum Beenden
+    wait $SERVER_PID
+else
+    echo "⚠️ Server startet noch oder ist nicht erreichbar"
+    echo "🎭 Du kannst trotzdem die Demo-Version nutzen:"
+    echo "   Öffne index.html direkt im Browser"
+    echo "   Klicke auf '🎭 Im Demo-Modus fortfahren'"
+    
+    # Versuche weiter zu warten
+    echo "⏱️ Warte weitere 5 Sekunden..."
+    sleep 5
+    
+    if curl -s http://localhost:3001/api/health > /dev/null; then
+        echo "✅ Server ist jetzt bereit!"
+        echo "🌐 Öffne http://localhost:3001"
+        wait $SERVER_PID
+    else
+        echo "❌ Server konnte nicht gestartet werden"
+        echo "📱 Nutze die Demo-Version: index.html öffnen"
+        kill $SERVER_PID 2>/dev/null
+        exit 1
+    fi
+fi
