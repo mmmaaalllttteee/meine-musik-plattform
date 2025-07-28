@@ -122,7 +122,55 @@
 
         // Demo-Modus für komplette Offline-Nutzung
         const initializeDemoMode = () => {
-            console.log('🎭 Demo-Modus aktiviert - alle Features verfügbar (ohne persistente Speicherung)');
+            console.log('🎭 Demo-Modus aktiviert - Backend-unabhängige Nutzung');
+            
+            // Zeige Demo-Hinweis nur einmal
+            if (!sessionStorage.getItem('demoModeNotified')) {
+                const demoNotice = document.createElement('div');
+                demoNotice.innerHTML = `
+                    <div style="
+                        position: fixed; 
+                        top: 20px; 
+                        right: 20px; 
+                        background: rgba(59, 130, 246, 0.9); 
+                        color: white; 
+                        padding: 15px 20px; 
+                        border-radius: 10px; 
+                        z-index: 9999;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                        max-width: 300px;
+                        font-family: system-ui;
+                    ">
+                        <div style="font-weight: bold; margin-bottom: 8px;">
+                            🎭 Demo-Modus aktiv
+                        </div>
+                        <div style="font-size: 14px; line-height: 1.4;">
+                            Alle Features funktionieren, aber Daten werden nicht dauerhaft gespeichert.
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" 
+                                style="
+                                    position: absolute; 
+                                    top: 5px; 
+                                    right: 10px; 
+                                    background: none; 
+                                    border: none; 
+                                    color: white; 
+                                    font-size: 16px; 
+                                    cursor: pointer;
+                                ">×</button>
+                    </div>
+                `;
+                document.body.appendChild(demoNotice);
+                
+                // Auto-remove nach 10 Sekunden
+                setTimeout(() => {
+                    if (demoNotice.parentElement) {
+                        demoNotice.remove();
+                    }
+                }, 10000);
+                
+                sessionStorage.setItem('demoModeNotified', 'true');
+            }
             
             // Mock Firebase Auth für Demo
             window.firebase = {
@@ -233,7 +281,23 @@
                 // Emergency redirect nach 5 Sekunden
                 setTimeout(() => {
                     if (confirm('Die Anwendung ist abgestürzt. Zur Notfall-Version wechseln?')) {
-                        window.location.href = 'emergency.html';
+                        // Versuche erst Backend zu starten
+                        console.log('🔄 Versuche Backend-Start...');
+                        
+                        fetch('/api/health')
+                            .then(response => {
+                                if (response.ok) {
+                                    console.log('✅ Backend ist verfügbar - Seite neu laden');
+                                    window.location.reload();
+                                } else {
+                                    console.log('⚠️ Backend nicht verfügbar - Demo-Modus beibehalten');
+                                    window.location.href = 'demo.html';
+                                }
+                            })
+                            .catch(() => {
+                                console.log('❌ Backend-Verbindung fehlgeschlagen - Demo-Modus');
+                                window.location.href = 'demo.html';
+                            });
                     }
                 }, 5000);
             }
@@ -360,12 +424,37 @@
             if (loading) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
-                        <div className="glass-pane p-8 rounded-2xl text-center">
+                        <div className="glass-pane p-8 rounded-2xl text-center max-w-md">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                            <p className="text-white text-lg font-semibold">Plattform wird geladen...</p>
-                            <p className="text-gray-300 text-sm mt-2">
-                                {error ? 'Demo-Modus wird vorbereitet...' : 'Verbindung wird hergestellt...'}
+                            <p className="text-white text-lg font-semibold mb-3">Musik-Plattform wird geladen...</p>
+                            <p className="text-gray-300 text-sm">
+                                {error ? (
+                                    <>⚠️ {error}</>
+                                ) : (
+                                    <>🔄 Verbinde mit Backend...</>
+                                )}
                             </p>
+                            
+                            <div className="mt-6 space-y-2">
+                                <button 
+                                    onClick={() => {
+                                        console.log('🎭 Benutzer wechselt zum Demo-Modus');
+                                        setLoading(false);
+                                        setError('Demo-Modus aktiviert - Backend nicht verfügbar');
+                                        initializeDemoMode();
+                                    }}
+                                    className="w-full bg-blue-500/80 text-white py-2 px-4 rounded-lg text-sm hover:bg-blue-500 transition"
+                                >
+                                    🎭 Im Demo-Modus fortfahren
+                                </button>
+                                
+                                <div className="text-xs text-gray-400 mt-2">
+                                    💡 Backend starten: <code>chmod +x start-backend.sh && ./start-backend.sh</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
                         </div>
                     </div>
                 );
