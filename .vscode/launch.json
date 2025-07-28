@@ -1,0 +1,69 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "🎵 Debug Musik-Plattform Server",
+            "program": "${workspaceFolder}/server.js",
+            "env": {
+                "NODE_ENV": "development",
+                "DEBUG": "musik-plattform:*"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "restart": true,
+            "runtimeArgs": ["--inspect"],
+            "skipFiles": [
+                "<node_internals>/**",
+                "${workspaceFolder}/node_modules/**"
+            ],
+            "outputCapture": "console"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "🌐 Debug Frontend (Chrome)",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}",
+            "sourceMaps": true,
+            "userDataDir": false,
+            "runtimeArgs": ["--disable-web-security", "--allow-running-insecure-content"]
+        },
+        {
+            "name": "🚀 Launch Full Stack",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/server.js",
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "serverReadyAction": {
+                "pattern": "Server running on.*port ([0-9]+)",
+                "uriFormat": "http://localhost:%s",
+                "action": "debugWithChrome"
+            }
+        },
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "🔗 Attach to Process",
+            "port": 9229,
+            "restart": true,
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "${workspaceFolder}"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🎯 Debug Server + Frontend",
+            "configurations": [
+                "🎵 Debug Musik-Plattform Server",
+                "🌐 Debug Frontend (Chrome)"
+            ],
+            "stopAll": true
+        }
+    ]
+}
