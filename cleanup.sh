@@ -1,0 +1,1 @@
+rm index.html && mv index-clean.html index.html

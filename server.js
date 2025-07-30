@@ -2,12 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security & Performance Middleware
+// Security middleware
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -19,102 +21,107 @@ app.use(helmet({
             fontSrc: ["'self'", "https:", "data:"],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
-            frameSrc: ["'none'"],
-        },
-    },
-}));
-
-app.use(cors({
-    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID']
+            frameSrc: ["'self'"]
+        }
+    }
 }));
 
 app.use(compression());
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://yourdomain.com'] 
+        : ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', limiter);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
+// Serve static files
 app.use(express.static(path.join(__dirname)));
 
 // API Routes
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
+        message: 'Musik-Plattform Backend is running',
         timestamp: new Date().toISOString(),
-        service: 'Musik-Plattform Backend',
         version: '1.0.0'
     });
 });
 
 app.get('/api/config/firebase', (req, res) => {
-    res.json({
-        apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
-        authDomain: "meine-musikplattform.firebaseapp.com",
-        projectId: "meine-musikplattform",
-        storageBucket: "meine-musikplattform.appspot.com",
-        messagingSenderId: "997469107237",
-        appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
-        measurementId: "G-7M62EV7KQH"
-    });
+    const firebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY || "demo-api-key",
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN || "meine-musikplattform.firebaseapp.com",
+        projectId: process.env.FIREBASE_PROJECT_ID || "meine-musikplattform",
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "meine-musikplattform.appspot.com",
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "997469107237",
+        appId: process.env.FIREBASE_APP_ID || "1:997469107237:web:demo",
+        measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-DEMO"
+    };
+    
+    res.json(firebaseConfig);
 });
 
-// Mock API Endpoints
-app.get('/api/analytics/dashboard', (req, res) => {
-    res.json({
-        keyKpis: [
-            { platform: 'Instagram', kpi: 'Follower insgesamt', value: '48.152', change: 1.2 },
-            { platform: 'Spotify', kpi: 'Monatliche Hörer', value: '1.2M', change: 5.3 },
-            { platform: 'Google Analytics 4', kpi: 'Nutzer (letzte 7 Tage)', value: '12.830', change: -2.1 }
-        ],
-        activities: [
-            { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' }
-        ],
-        learningProgress: { pathTitle: 'Onboarding für neue Künstler:innen', progress: 75 }
-    });
-});
-
+// Demo API endpoints
 app.get('/api/projects', (req, res) => {
-    res.json([
-        { 
-            id: 'proj_1', 
-            name: 'Album Release "Neon Dreams"', 
-            files: [], 
-            moodboards: [{ id: 'mood_1', title: 'Cover Artwork & Visuals', items: [] }], 
-            taskboards: [{ 
-                id: 'task_1', 
-                title: 'Marketing & PR Plan', 
-                sections: [
-                    { id: 'sec_1', title: 'To Do', tasks: [] },
-                    { id: 'sec_2', title: 'In Progress', tasks: [] },
-                    { id: 'sec_3', title: 'Done', tasks: [] }
-                ] 
-            }] 
-        }
-    ]);
+    res.json({
+        success: true,
+        data: [
+            {
+                id: 'proj_1',
+                name: 'Album Release "Neon Dreams"',
+                status: 'active',
+                created: new Date().toISOString()
+            }
+        ]
+    });
 });
 
-// Serve index.html for all other routes
+app.get('/api/analytics', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            totalStreams: 125000,
+            monthlyListeners: 15600,
+            topTrack: "Neon Dreams",
+            platforms: ['Spotify', 'Apple Music', 'YouTube Music']
+        }
+    });
+});
+
+// Catch all handler for SPA
 app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Error handling
+// Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('Server Error:', err.stack);
+    console.error('Error:', err.stack);
     res.status(500).json({ 
-        error: 'Internal Server Error',
-        timestamp: new Date().toISOString()
+        error: 'Something went wrong!',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
     });
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Musik-Plattform Backend started successfully!`);
-    console.log(`📍 Server running on: http://localhost:${PORT}`);
-    console.log(`⚕️ Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`🔥 Firebase Config: http://localhost:${PORT}/api/config/firebase`);
-    console.log(`🎵 Ready to serve your music platform!`);
+app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🎵 Musik-Plattform Backend started successfully`);
+    console.log(`📱 Frontend available at: http://localhost:${PORT}`);
+    console.log(`⚕️  Health check: http://localhost:${PORT}/api/health`);
 });
 
 module.exports = app;

@@ -21,13 +21,16 @@
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.18);
         }
+        .text-shadow {
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body class="text-white">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, createContext, useContext } = React;
 
         // Mock Data
         const mockData = {
@@ -35,301 +38,289 @@
                 { platform: 'Instagram', kpi: 'Follower insgesamt', value: '48.152', change: 1.2 },
                 { platform: 'Spotify', kpi: 'Monatliche Hörer', value: '1.2M', change: 5.3 },
                 { platform: 'Google Analytics 4', kpi: 'Nutzer (letzte 7 Tage)', value: '12.830', change: -2.1 }
+            ],
+            activities: [
+                { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' },
+                { id: 'act_2', type: 'file_uploaded', text: 'Cover-Artwork hochgeladen', project: 'Album Release', time: 'vor 4 Stunden' },
+                { id: 'act_3', type: 'task_completed', text: 'Social Media Plan erstellt', project: 'Marketing Campaign', time: 'gestern' },
+                { id: 'act_4', type: 'comment_added', text: 'Feedback zu Moodboard erhalten', project: 'Album Release', time: 'vor 2 Tagen' }
             ]
         };
 
-        // Main App Component
-        const App = () => {
-            const [loading, setLoading] = useState(true);
+        // Auth Context
+        const AuthContext = createContext(null);
+        const AuthProvider = ({ children }) => {
+            const [user] = useState({
+                uid: 'demo-user-123',
+                email: 'demo@example.com',
+                displayName: 'Demo Benutzer',
+                photoURL: null
+            });
+            return <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>;
+        };
+        const useAuth = () => useContext(AuthContext);
 
-            useEffect(() => {
-                setTimeout(() => setLoading(false), 2000);
-            }, []);
-
-            if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
-                        <div className="glass-pane p-8 rounded-2xl text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                            <p className="text-white text-lg font-semibold">Musik-Plattform wird geladen...</p>
-                            <p className="text-gray-300 text-sm mt-2">npm install && npm start erfolgreich!</p>
-                        </div>
-                    </div>
-                );
-            }
-
+        // Icon Component
+        const Icon = ({ name, className = "w-6 h-6" }) => {
+            const icons = {
+                menu: "M4 6h16M4 12h16M4 18h16",
+                bell: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+                user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+                barChart: "M12 20V10M18 20V4M6 20v-6",
+                briefcase: "M20 7H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z",
+                zap: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+                bookOpen: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z",
+                messageSquare: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+                award: "M12 15l-8-5 8-5 8 5-8 5z",
+                shieldCheck: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+                plus: "M12 2v20M2 12h20",
+                trendingUp: "M23 6l-9.5 9.5-5-5L1 18"
+            };
             return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
-                    <div className="container mx-auto px-4 py-8">
-                        <div className="text-center mb-12">
-                            <h1 className="text-4xl font-bold text-white mb-4">🎵 Musik-Plattform</h1>
-                            <p className="text-xl text-gray-300">Dein Betriebssystem für das Musikbusiness</p>
-                            <div className="mt-4 inline-block glass-pane px-4 py-2 rounded-full">
-                                <span className="text-green-400">✅ Server läuft auf Port 3001</span>
-                            </div>
-                        </div>
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[name]} />
+                </svg>
+            );
+        };
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            {mockData.keyKpis.map((kpi, index) => (
-                                <div key={index} className="glass-pane p-6 rounded-2xl">
-                                    <h3 className="text-lg font-semibold text-white mb-2">{kpi.platform}</h3>
-                                    <p className="text-sm text-gray-300 mb-2">{kpi.kpi}</p>
-                                    <p className="text-3xl font-bold text-white">{kpi.value}</p>
-                                    <p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%
-                                    </p>
+        // Page Wrapper
+        const PageWrapper = ({ children }) => (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</div>
+        );
+
+        // Dashboard Component
+        const MainDashboard = ({ setActivePage, activities, complyCheckScore }) => (
+            <PageWrapper>
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-shadow mb-2">Dashboard</h1>
+                    <p className="text-gray-300 text-shadow">Willkommen zurück! Hier ist deine Übersicht.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {mockData.keyKpis.map((kpi, index) => (
+                        <div key={index} className="glass-pane p-6 rounded-2xl">
+                            <h3 className="text-lg font-semibold text-white mb-2">{kpi.platform}</h3>
+                            <p className="text-sm text-gray-300 mb-2">{kpi.kpi}</p>
+                            <p className="text-3xl font-bold text-white">{kpi.value}</p>
+                            <p className={`text-sm font-semibold ${kpi.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {kpi.change >= 0 ? '▲' : '▼'} {kpi.change}%
+                            </p>
+                        </div>
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="glass-pane p-6 rounded-2xl">
+                        <h2 className="text-xl font-bold mb-4 text-shadow">Letzte Aktivitäten</h2>
+                        <div className="space-y-3">
+                            {mockData.activities.map(activity => (
+                                <div key={activity.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div className="flex-grow">
+                                        <p className="text-sm font-medium text-shadow">{activity.text}</p>
+                                        <p className="text-xs text-gray-400">{activity.project} • {activity.time}</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
-
-                        <div className="glass-pane p-8 rounded-2xl text-center">
-                            <h2 className="text-2xl font-bold text-white mb-4">🚀 Plattform erfolgreich gestartet!</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                <div className="p-4 bg-green-500/20 rounded-lg">
-                                    <p className="text-green-400 font-bold">Frontend</p>
-                                    <p className="text-white">http://localhost:3001</p>
-                                </div>
-                                <div className="p-4 bg-blue-500/20 rounded-lg">
-                                    <p className="text-blue-400 font-bold">Health Check</p>
-                                    <p className="text-white">/api/health</p>
-                                </div>
-                                <div className="p-4 bg-yellow-500/20 rounded-lg">
-                                    <p className="text-yellow-400 font-bold">Firebase Config</p>
-                                    <p className="text-white">/api/config/firebase</p>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-6 p-4 bg-white/5 rounded-lg">
-                                <h3 className="text-lg font-bold text-white mb-2">✅ Vollständig implementiert:</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                                    <span className="text-green-400">✅ Express Backend</span>
-                                    <span className="text-green-400">✅ React Frontend</span>
-                                    <span className="text-green-400">✅ Firebase Auth</span>
-                                    <span className="text-green-400">✅ Security Layer</span>
-                                    <span className="text-green-400">✅ Responsive Design</span>
-                                    <span className="text-green-400">✅ API Endpoints</span>
-                                    <span className="text-green-400">✅ Demo Fallback</span>
-                                    <span className="text-green-400">✅ Production Ready</span>
-                                </div>
-                            </div>
+                    </div>
+                    <div className="glass-pane p-6 rounded-2xl">
+                        <h2 className="text-xl font-bold mb-4 text-shadow">Quick Actions</h2>
+                        <div className="space-y-3">
+                            <button onClick={() => setActivePage('projects')} className="w-full p-3 bg-blue-500 text-white rounded-lg text-left flex items-center gap-3">
+                                <Icon name="plus" className="w-5 h-5" />Neues Projekt erstellen
+                            </button>
+                            <button onClick={() => setActivePage('analytics')} className="w-full p-3 bg-white/10 text-white rounded-lg text-left flex items-center gap-3">
+                                <Icon name="trendingUp" className="w-5 h-5" />Analytics anzeigen
+                            </button>
+                            <button onClick={() => setActivePage('comply')} className="w-full p-3 bg-white/10 text-white rounded-lg text-left flex items-center gap-3">
+                                <Icon name="shieldCheck" className="w-5 h-5" />DSGVO-Check ({complyCheckScore})
+                            </button>
                         </div>
                     </div>
+                </div>
+            </PageWrapper>
+        );
+
+        // Navigation Component
+        const Navigation = ({ activePage, setActivePage, user }) => {
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const navItems = [
+                { id: 'dashboard', name: 'Dashboard', icon: 'barChart' },
+                { id: 'projects', name: 'Projekte', icon: 'briefcase' },
+                { id: 'analytics', name: 'Analytics', icon: 'zap' },
+                { id: 'library', name: 'Library', icon: 'bookOpen' },
+                { id: 'support', name: 'Support', icon: 'messageSquare' },
+                { id: 'learningcenter', name: 'Learning', icon: 'award' },
+                { id: 'comply', name: 'Comply', icon: 'shieldCheck' },
+                { id: 'profile', name: 'Profil', icon: 'user' }
+            ];
+
+            return (
+                <nav className="glass-pane sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between items-center h-16">
+                            <div className="flex items-center">
+                                <span className="text-xl font-bold text-shadow">🎵 Musik-Plattform</span>
+                            </div>
+                            <div className="hidden md:block">
+                                <div className="ml-10 flex items-baseline space-x-4">
+                                    {navItems.map((item) => (
+                                        <button key={item.id} onClick={() => setActivePage(item.id)} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activePage === item.id ? 'bg-white/20 text-white' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}>
+                                            <Icon name={item.icon} className="w-4 h-4" />{item.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button className="relative text-gray-300 hover:text-white">
+                                    <Icon name="bell" className="w-6 h-6" />
+                                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500"></span>
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                        {user?.displayName?.charAt(0) || 'U'}
+                                    </div>
+                                    <span className="hidden sm:block">{user?.displayName || 'User'}</span>
+                                </div>
+                                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-gray-300 hover:text-white">
+                                    <Icon name="menu" className="w-6 h-6" />
+                                </button>
+                            </div>
+                        </div>
+                        {mobileMenuOpen && (
+                            <div className="md:hidden">
+                                <div className="px-2 pt-2 pb-3 space-y-1 glass-pane rounded-lg mt-2">
+                                    {navItems.map((item) => (
+                                        <button key={item.id} onClick={() => { setActivePage(item.id); setMobileMenuOpen(false); }} className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left flex items-center gap-2 ${activePage === item.id ? 'bg-white/20 text-white' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}>
+                                            <Icon name={item.icon} className="w-4 h-4" />{item.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </nav>
+            );
+        };
+
+        // Placeholder Components
+        const ProjectsPage = () => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">Projekte</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">Projekte-Verwaltung</h2>
+                    <p className="text-gray-300">Hier können Sie Ihre Musikprojekte verwalten.</p>
+                </div>
+            </PageWrapper>
+        );
+
+        const AnalyticsPage = () => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">Analytics</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">Analytics Dashboard</h2>
+                    <p className="text-gray-300">Hier sehen Sie Ihre Musik-Analytics.</p>
+                </div>
+            </PageWrapper>
+        );
+
+        const LibraryPage = () => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">Smart Library</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">Vorlagen & Ressourcen</h2>
+                    <p className="text-gray-300">Hier finden Sie Verträge und Vorlagen.</p>
+                </div>
+            </PageWrapper>
+        );
+
+        const SupportPage = () => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">Support Hub</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">Hilfe & Support</h2>
+                    <p className="text-gray-300">Hier finden Sie Hilfe und können Fragen stellen.</p>
+                </div>
+            </PageWrapper>
+        );
+
+        const LearningPage = () => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">Learning Center</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">Lernpfade</h2>
+                    <p className="text-gray-300">Hier können Sie Ihr Wissen erweitern.</p>
+                </div>
+            </PageWrapper>
+        );
+
+        const ComplyPage = ({ complyCheckScore, setComplyCheckScore }) => (
+            <PageWrapper>
+                <h1 className="text-3xl font-bold text-shadow mb-8">ComplyCheck</h1>
+                <div className="glass-pane p-8 rounded-2xl text-center">
+                    <h2 className="text-xl font-bold mb-4">DSGVO Compliance</h2>
+                    <p className="text-gray-300 mb-4">Aktueller Score: {complyCheckScore}</p>
+                    <button onClick={() => setComplyCheckScore('3 / 3')} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Test durchführen</button>
+                </div>
+            </PageWrapper>
+        );
+
+        const ProfilePage = () => {
+            const { user } = useAuth();
+            return (
+                <PageWrapper>
+                    <h1 className="text-3xl font-bold text-shadow mb-8">Profil</h1>
+                    <div className="glass-pane p-8 rounded-2xl">
+                        <h2 className="text-xl font-bold mb-4">Benutzerinformationen</h2>
+                        <div className="space-y-4">
+                            <div><label className="block text-sm font-medium text-gray-300 mb-2">Name</label><p className="text-white">{user?.displayName}</p></div>
+                            <div><label className="block text-sm font-medium text-gray-300 mb-2">E-Mail</label><p className="text-white">{user?.email}</p></div>
+                        </div>
+                    </div>
+                </PageWrapper>
+            );
+        };
+
+        // Main App Component
+        const MainApp = () => {
+            const { user } = useAuth();
+            const [activePage, setActivePage] = useState('dashboard');
+            const [complyCheckScore, setComplyCheckScore] = useState('0 / 3');
+
+            const renderPage = () => {
+                switch (activePage) {
+                    case 'projects': return <ProjectsPage />;
+                    case 'analytics': return <AnalyticsPage />;
+                    case 'library': return <LibraryPage />;
+                    case 'support': return <SupportPage />;
+                    case 'learningcenter': return <LearningPage />;
+                    case 'comply': return <ComplyPage complyCheckScore={complyCheckScore} setComplyCheckScore={setComplyCheckScore} />;
+                    case 'profile': return <ProfilePage />;
+                    default: return <MainDashboard setActivePage={setActivePage} activities={mockData.activities} complyCheckScore={complyCheckScore} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900">
+                    <Navigation activePage={activePage} setActivePage={setActivePage} user={user} />
+                    <main>{renderPage()}</main>
                 </div>
             );
         };
 
+        // App Component
+        const App = () => (
+            <AuthProvider>
+                <MainApp />
+            </AuthProvider>
+        );
+
         // Render App
         ReactDOM.render(<App />, document.getElementById('root'));
         console.log('🚀 Musik-Plattform successfully loaded!');
-    </script>
-</body>
-</html>
-        const initializeFirebase = async () => {
-            console.log('🔄 Initialisiere Firebase-Verbindung...');
-            
-            try {
-                // Versuche Backend-Verbindung mit kurzem Timeout
-                console.log('📡 Versuche Backend-Verbindung...');
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduziert auf 3s
-                
-                const response = await fetch(`${API_BASE_URL}/api/config/firebase`, {
-                    signal: controller.signal,
-                    headers: {
-                        'User-Agent': 'MusikPlattform-Frontend/1.0'
-                    }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`Server-Fehler: ${response.status}`);
-                }
-                
-                const firebaseConfig = await response.json();
-                console.log('✅ Firebase-Konfiguration vom Backend erhalten');
-                
-                await initializeFirebaseWithConfig(firebaseConfig, true);
-                
-            } catch (error) {
-                console.warn('⚠️ Backend nicht verfügbar, verwende Fallback-Konfiguration:', error.message);
-                
-                // Fallback: Verwende lokale Firebase-Konfiguration
-                const fallbackConfig = {
-                    apiKey: "AIzaSyDdgu05VJewoLG9-Ad1jdU8ogee2C4_tKs",
-                    authDomain: "meine-musikplattform.firebaseapp.com",
-                    projectId: "meine-musikplattform",
-                    storageBucket: "meine-musikplattform.appspot.com",
-                    messagingSenderId: "997469107237",
-                    appId: "1:997469107237:web:109d6cfa8829f01e547bcc",
-                    measurementId: "G-7M62EV7KQH"
-                };
-                
-                await initializeFirebaseWithConfig(fallbackConfig, false);
-            }
-        };
-
-        // Firebase-Initialisierung mit Konfiguration
-        const initializeFirebaseWithConfig = async (firebaseConfig, hasBackend) => {
-            try {
-                // Firebase App initialisieren
-                let app;
-                try {
-                    app = initializeApp(firebaseConfig);
-                    console.log(`✅ Firebase erfolgreich initialisiert (${hasBackend ? 'mit Backend' : 'Standalone-Modus'})`);
-                } catch (e) {
-                    console.error("❌ Firebase initialization error:", e);
-                    
-                    // Auch bei Firebase-Fehler die App laden (Demo-Modus)
-                    console.log('🎭 Starte im Demo-Modus ohne Firebase');
-                    initializeDemoMode();
-                    return;
-                }
-                
-                const auth = getAuth(app);
-                
-                // Global verfügbar machen
-                window.firebase = {
-                    auth,
-                    onAuthStateChanged,
-                    createUserWithEmailAndPassword,
-                    signInWithEmailAndPassword,
-                    signOut,
-                    sendPasswordResetEmail,
-                    updateProfile,
-                    updatePassword
-                };
-
-                // Backend-API-Konfiguration
-                window.apiConfig = {
-                    baseUrl: hasBackend ? API_BASE_URL : null,
-                    hasBackend: hasBackend
-                };
-                
-                console.log(`🚀 Plattform bereit (${hasBackend ? 'Vollversion' : 'Demo-Modus'})`);
-                
-            } catch (error) {
-                console.error("❌ Kritischer Initialisierungsfehler:", error);
-                initializeDemoMode();
-            }
-        };
-
-        // Demo-Modus für komplette Offline-Nutzung
-        const initializeDemoMode = () => {
-            console.log('🎭 Demo-Modus aktiviert - Backend-unabhängige Nutzung');
-            
-            // Zeige Demo-Hinweis nur einmal
-            if (!sessionStorage.getItem('demoModeNotified')) {
-                const demoNotice = document.createElement('div');
-                demoNotice.innerHTML = `
-                    <div style="
-                        position: fixed; 
-                        top: 20px; 
-                        right: 20px; 
-                        background: rgba(59, 130, 246, 0.9); 
-                        color: white; 
-                        padding: 15px 20px; 
-                        border-radius: 10px; 
-                        z-index: 9999;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                        max-width: 300px;
-                        font-family: system-ui;
-                    ">
-                        <div style="font-weight: bold; margin-bottom: 8px;">
-                            🎭 Demo-Modus aktiv
-                        </div>
-                        <div style="font-size: 14px; line-height: 1.4;">
-                            Alle Features funktionieren, aber Daten werden nicht dauerhaft gespeichert.
-                        </div>
-                        <button onclick="this.parentElement.parentElement.remove()" 
-                                style="
-                                    position: absolute; 
-                                    top: 5px; 
-                                    right: 10px; 
-                                    background: none; 
-                                    border: none; 
-                                    color: white; 
-                                    font-size: 16px; 
-                                    cursor: pointer;
-                                ">×</button>
-                    </div>
-                `;
-                document.body.appendChild(demoNotice);
-                
-                // Auto-remove nach 10 Sekunden
-                setTimeout(() => {
-                    if (demoNotice.parentElement) {
-                        demoNotice.remove();
-                    }
-                }, 10000);
-                
-                sessionStorage.setItem('demoModeNotified', 'true');
-            }
-            
-            // Mock Firebase Auth für Demo
-            window.firebase = {
-                auth: { currentUser: null },
-                onAuthStateChanged: (auth, callback) => {
-                    // Simuliere anonymen Benutzer nach kurzer Verzögerung
-                    setTimeout(() => {
-                        const demoUser = {
-                            uid: 'demo-user-123',
-                            email: 'demo@example.com',
-                            displayName: 'Demo Benutzer',
-                            photoURL: null
-                        };
-                        callback(demoUser);
-                    }, 1000);
-                    return () => {}; // Unsubscribe function
-                },
-                createUserWithEmailAndPassword: async () => {
-                    throw new Error('Registrierung im Demo-Modus nicht verfügbar');
-                },
-                signInWithEmailAndPassword: async (auth, email, password) => {
-                    // Demo-Login erlauben
-                    if (email && password) {
-                        return {
-                            user: {
-                                uid: 'demo-user-123',
-                                email: email,
-                                displayName: 'Demo Benutzer',
-                                photoURL: null
-                            }
-                        };
-                    }
-                    throw new Error('Demo-Login: Bitte E-Mail und Passwort eingeben');
-                },
-                signOut: async () => {
-                    console.log('Demo-Logout durchgeführt');
-                },
-                sendPasswordResetEmail: async () => {
-                    throw new Error('Password-Reset im Demo-Modus nicht verfügbar');
-                },
-                updateProfile: async () => {
-                    console.log('Profil-Update im Demo-Modus simuliert');
-                },
-                updatePassword: async () => {
-                    throw new Error('Passwort-Änderung im Demo-Modus nicht verfügbar');
-                }
-            };
-
-            // Mock API-Konfiguration
-            window.apiConfig = {
-                baseUrl: null,
-                hasBackend: false,
-                demoMode: true
-            };
-
-            console.log('✅ Demo-Modus erfolgreich konfiguriert');
-        };
-
-        // Initialisiere Firebase nach dem Laden der Seite
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeFirebase);
-        } else {
-            initializeFirebase();
-        }
+        // Initialize security measures
+        useEffect(() => {
+            preventDataLeakage();
+        }, []);
     </script>
     
     <!-- Multi-Character-Sanitization Security Library -->
@@ -407,10 +398,10 @@
 </head>
 <body class="text-white">
     <div id="root"></div>
-
     <script type="text/babel">
         // React Hooks und Context
-        const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+        // REMOVE duplicate destructuring of useState, useEffect, etc.
+        const { useMemo, useRef, createContext, useContext } = React;
 
         // --- Error Boundary für kritische Fehler ---
         class ErrorBoundary extends React.Component {
@@ -1020,58 +1011,28 @@
         const initialProjects = [
             { id: 'proj_1', name: 'Album Release "Neon Dreams"', files: [], moodboards: [ { id: 'mood_1', title: 'Cover Artwork & Visuals', items: [ { id: 'item_1', type: 'image', content: 'https://placehold.co/600x400/1a1a1a/ffffff?text=Inspiration+1', x: 50, y: 50, w: 250, h: 180 }, { id: 'item_2', type: 'text', content: 'Key Words: Retro, 80s, Chrome, Sunset', x: 350, y: 80, w: 200, h: 100 }, { id: 'item_3', type: 'image', content: 'https://placehold.co/600x400/4a4a4a/ffffff?text=Inspiration+2', x: 80, y: 280, w: 300, h: 200 }, { id: 'item_4', type: 'video', content: 'Video-Referenz', x: 420, y: 250, w: 220, h: 150 } ] } ], taskboards: [ { id: 'task_1', title: 'Marketing & PR Plan', sections: [ { id: 'sec_1', title: 'To Do', tasks: [ { id: 't_1', title: 'Pressemitteilung entwerfen', priority: 'high', assignee: 'Anna', dueDate: '2025-08-15', completed: false }, { id: 't_2', title: 'Social Media Grafiken erstellen', priority: 'medium', assignee: 'Max', dueDate: '2025-08-20', completed: false } ] }, { id: 'sec_2', title: 'In Progress', tasks: [ { id: 't_3', title: 'Interview-Partner anfragen', priority: 'high', assignee: 'Anna', completed: false } ] }, { id: 'sec_3', title: 'Done', tasks: [ { id: 't_4', title: 'Marketing-Budget finalisieren', priority: 'medium', assignee: 'Chris', dueDate: '2025-07-20', completed: true } ] } ] } ] }
         ];
-        const mockCmsData = { data: [ { id: 1, title: "Bandübernahmevertrag (Standard)", description: "Ein Standardvertrag zur Übertragung der Master-Rechte.", category: "Verträge", files: { docx: "#", pdf: "#" }, tags: ["Recording", "Rechte", "Label"] }, { id: 2, title: "Booking-Anfrage (Vorlage)", description: "Vorlage für Anfragen an Veranstalter.", category: "Booking", files: { docx: "#" }, tags: ["Live", "Konzert"] }, { id: 3, title: "Pressekit-Checkliste", description: "Alle wichtigen Inhalte für ein Pressekit.", category: "Best Practices", files: { pdf: "#", notion: "#" }, tags: ["PR", "Marketing", "EPK"] } ] };
-        const mockKnowledgeBase = { data: [ { id: 'kb-1', title: "Wie richte ich mein E-Mail-Konto ein?", category: "Setup", tags: ["email", "mdm"] }, { id: 'kb-2', title: "Was ist ein AV-Vertrag?", category: "DSGVO", tags: ["datenschutz", "vertrag"] }, { id: 'kb-3', title: "Wie teile ich ein Moodboard?", category: "Kollaboration", tags: ["moodboard", "sharing"] } ] };
+        // (Keep only the first occurrence of each mock data variable, remove all subsequent duplicates throughout the script)
+                // Removed duplicate declaration of mockCmsData
+                // const mockKnowledgeBase = ... (duplicate removed)
+                // Removed duplicate declaration
+                // Removed duplicate declaration
+                // Removed duplicate declaration
+                // Removed duplicate declaration
+                const initialUser = {
+                    uid: 'demo-user-123',
+                    email: 'demo@example.com',
+                    displayName: 'Demo Benutzer',
+                    photoURL: null
+                // Removed duplicate declaration
         const mockLearningPaths = [ { id: 'lp1', title: "Onboarding für neue Künstler:innen", description: "Alle Grundlagen für einen erfolgreichen Start.", targetRole: "Künstler", modules: [ { id: 'm1-1', title: "Willkommen im Team!", type: 'video' }, { id: 'm1-2', title: "Unsere Kommunikations-Tools", type: 'text', content: 'Wir nutzen Slack für die tägliche Kommunikation und Asana für das Projektmanagement...' }, { id: 'm1-3', title: "Grundlagen der GEMA-Meldung", type: 'text', content: 'Jeder Live-Auftritt muss gemeldet werden...' }, { id: 'm1-4', title: "Wissens-Check: Kommunikation", type: 'quiz', content: { question: "Welches Tool nutzen wir für das Projektmanagement?", options: ["Slack", "Asana", "Trello"], correctAnswerIndex: 1 }} ] }, { id: 'lp2', title: "Einführung für Freelance-Booker", description: "So arbeitest du effektiv mit uns.", targetRole: "Freelancer", modules: [ { id: 'm2-1', title: "Übersicht unserer Künstler-Roster", type: 'text' }, { id: 'm2-2', title: "Der Booking-Prozess", type: 'video' }, { id: 'm2-3', title: "Wissens-Check: Verträge", type: 'quiz', content: { question: "Wo findest du die Vertragsvorlagen?", options: ["Google Drive", "SmartLibrary"], correctAnswerIndex: 1 }} ] } ];
         const dsgvoQuestions = [ { id: 'q1', text: "Führst du ein Verzeichnis von Verarbeitungstätigkeiten (VVT)?" }, { id: 'q2', text: "Hast du eine Datenschutzerklärung auf deiner Webseite?" }, { id: 'q3', text: "Schließt du Auftragsverarbeitungs-Verträge (AVV) mit Dienstleistern ab?" } ];
         const priorityColors = { low: 'bg-green-500', medium: 'bg-yellow-500', high: 'bg-red-500' };
         const initialActivities = [
             { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' },
-            { id: 'act_2', type: 'file_uploaded', text: 'Cover-Artwork hochgeladen', project: 'Album Release', time: 'vor 4 Stunden' },
-            { id: 'act_3', type: 'task_completed', text: 'Social Media Plan erstellt', project: 'Marketing Campaign', time: 'gestern' },
-            { id: 'act_4', type: 'comment_added', text: 'Feedback zu Moodboard erhalten', project: 'Album Release', time: 'vor 2 Tagen' }
+                // Removed duplicate declaration
         ];
         const initialUser = {
-            uid: 'demo-user-123',
-            email: 'demo@example.com',
-            displayName: 'Demo Benutzer',
-            photoURL: null
-        };
-        const initialProjectsData = [
-            { id: 'proj_1', name: 'Album Release "Neon Dreams"', files: [], moodboards: [ { id: 'mood_1', title: 'Cover Artwork & Visuals', items: [ { id: 'item_1', type: 'image', content: 'https://placehold.co/600x400/1a1a1a/ffffff?text=Inspiration+1', x: 50, y: 50, w: 250, h: 180 }, { id: 'item_2', type: 'text', content: 'Key Words: Retro, 80s, Chrome, Sunset', x: 350, y: 80, w: 200, h: 100 }, { id: 'item_3', type: 'image', content: 'https://placehold.co/600x400/4a4a4a/ffffff?text=Inspiration+2', x: 80, y: 280, w: 300, h: 200 }, { id: 'item_4', type: 'video', content: 'Video-Referenz', x: 420, y: 250, w: 220, h: 150 } ] } ], taskboards: [ { id: 'task_1', title: 'Marketing & PR Plan', sections: [ { id: 'sec_1', title: 'To Do', tasks: [ { id: 't_1', title: 'Pressemitteilung entwerfen', priority: 'high', assignee: 'Anna', dueDate: '2025-08-15', completed: false }, { id: 't_2', title: 'Social Media Grafiken erstellen', priority: 'medium', assignee: 'Max', dueDate: '2025-08-20', completed: false } ] }, { id: 'sec_2', title: 'In Progress', tasks: [ { id: 't_3', title: 'Interview-Partner anfragen', priority: 'high', assignee: 'Anna', completed: false } ] }, { id: 'sec_3', title: 'Done', tasks: [ { id: 't_4', title: 'Marketing-Budget finalisieren', priority: 'medium', assignee: 'Chris', dueDate: '2025-07-20', completed: true } ] } ] } ] }
-        ];
-        const mockCmsData = { data: [ { id: 1, title: "Bandübernahmevertrag (Standard)", description: "Ein Standardvertrag zur Übertragung der Master-Rechte.", category: "Verträge", files: { docx: "#", pdf: "#" }, tags: ["Recording", "Rechte", "Label"] }, { id: 2, title: "Booking-Anfrage (Vorlage)", description: "Vorlage für Anfragen an Veranstalter.", category: "Booking", files: { docx: "#" }, tags: ["Live", "Konzert"] }, { id: 3, title: "Pressekit-Checkliste", description: "Alle wichtigen Inhalte für ein Pressekit.", category: "Best Practices", files: { pdf: "#", notion: "#" }, tags: ["PR", "Marketing", "EPK"] } ] };
-        const mockKnowledgeBase = { data: [ { id: 'kb-1', title: "Wie richte ich mein E-Mail-Konto ein?", category: "Setup", tags: ["email", "mdm"] }, { id: 'kb-2', title: "Was ist ein AV-Vertrag?", category: "DSGVO", tags: ["datenschutz", "vertrag"] }, { id: 'kb-3', title: "Wie teile ich ein Moodboard?", category: "Kollaboration", tags: ["moodboard", "sharing"] } ] };
-        const mockLearningPaths = [ { id: 'lp1', title: "Onboarding für neue Künstler:innen", description: "Alle Grundlagen für einen erfolgreichen Start.", targetRole: "Künstler", modules: [ { id: 'm1-1', title: "Willkommen im Team!", type: 'video' }, { id: 'm1-2', title: "Unsere Kommunikations-Tools", type: 'text', content: 'Wir nutzen Slack für die tägliche Kommunikation und Asana für das Projektmanagement...' }, { id: 'm1-3', title: "Grundlagen der GEMA-Meldung", type: 'text', content: 'Jeder Live-Auftritt muss gemeldet werden...' }, { id: 'm1-4', title: "Wissens-Check: Kommunikation", type: 'quiz', content: { question: "Welches Tool nutzen wir für das Projektmanagement?", options: ["Slack", "Asana", "Trello"], correctAnswerIndex: 1 }} ] }, { id: 'lp2', title: "Einführung für Freelance-Booker", description: "So arbeitest du effektiv mit uns.", targetRole: "Freelancer", modules: [ { id: 'm2-1', title: "Übersicht unserer Künstler-Roster", type: 'text' }, { id: 'm2-2', title: "Der Booking-Prozess", type: 'video' }, { id: 'm2-3', title: "Wissens-Check: Verträge", type: 'quiz', content: { question: "Wo findest du die Vertragsvorlagen?", options: ["Google Drive", "SmartLibrary"], correctAnswerIndex: 1 }} ] } ];
-        const dsgvoQuestions = [ { id: 'q1', text: "Führst du ein Verzeichnis von Verarbeitungstätigkeiten (VVT)?" }, { id: 'q2', text: "Hast du eine Datenschutzerklärung auf deiner Webseite?" }, { id: 'q3', text: "Schließt du Auftragsverarbeitungs-Verträge (AVV) mit Dienstleistern ab?" } ];
-        const priorityColors = { low: 'bg-green-500', medium: 'bg-yellow-500', high: 'bg-red-500' };
-        const initialActivities = [
-            { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' },
-            { id: 'act_2', type: 'file_uploaded', text: 'Cover-Artwork hochgeladen', project: 'Album Release', time: 'vor 4 Stunden' },
-            { id: 'act_3', type: 'task_completed', text: 'Social Media Plan erstellt', project: 'Marketing Campaign', time: 'gestern' },
-            { id: 'act_4', type: 'comment_added', text: 'Feedback zu Moodboard erhalten', project: 'Album Release', time: 'vor 2 Tagen' }
-        ];
-        const initialUser = {
-            uid: 'demo-user-123',
-            email: 'demo@example.com',
-            displayName: 'Demo Benutzer',
-            photoURL: null
-        };
-        const initialProjectsData = [
-            { id: 'proj_1', name: 'Album Release "Neon Dreams"', files: [], moodboards: [ { id: 'mood_1', title: 'Cover Artwork & Visuals', items: [ { id: 'item_1', type: 'image', content: 'https://placehold.co/600x400/1a1a1a/ffffff?text=Inspiration+1', x: 50, y: 50, w: 250, h: 180 }, { id: 'item_2', type: 'text', content: 'Key Words: Retro, 80s, Chrome, Sunset', x: 350, y: 80, w: 200, h: 100 }, { id: 'item_3', type: 'image', content: 'https://placehold.co/600x400/4a4a4a/ffffff?text=Inspiration+2', x: 80, y: 280, w: 300, h: 200 }, { id: 'item_4', type: 'video', content: 'Video-Referenz', x: 420, y: 250, w: 220, h: 150 } ] } ], taskboards: [ { id: 'task_1', title: 'Marketing & PR Plan', sections: [ { id: 'sec_1', title: 'To Do', tasks: [ { id: 't_1', title: 'Pressemitteilung entwerfen', priority: 'high', assignee: 'Anna', dueDate: '2025-08-15', completed: false }, { id: 't_2', title: 'Social Media Grafiken erstellen', priority: 'medium', assignee: 'Max', dueDate: '2025-08-20', completed: false } ] }, { id: 'sec_2', title: 'In Progress', tasks: [ { id: 't_3', title: 'Interview-Partner anfragen', priority: 'high', assignee: 'Anna', completed: false } ] }, { id: 'sec_3', title: 'Done', tasks: [ { id: 't_4', title: 'Marketing-Budget finalisieren', priority: 'medium', assignee: 'Chris', dueDate: '2025-07-20', completed: true } ] } ] } ] }
-        ];
-        const mockCmsData = { data: [ { id: 1, title: "Bandübernahmevertrag (Standard)", description: "Ein Standardvertrag zur Übertragung der Master-Rechte.", category: "Verträge", files: { docx: "#", pdf: "#" }, tags: ["Recording", "Rechte", "Label"] }, { id: 2, title: "Booking-Anfrage (Vorlage)", description: "Vorlage für Anfragen an Veranstalter.", category: "Booking", files: { docx: "#" }, tags: ["Live", "Konzert"] }, { id: 3, title: "Pressekit-Checkliste", description: "Alle wichtigen Inhalte für ein Pressekit.", category: "Best Practices", files: { pdf: "#", notion: "#" }, tags: ["PR", "Marketing", "EPK"] } ] };
-        const mockKnowledgeBase = { data: [ { id: 'kb-1', title: "Wie richte ich mein E-Mail-Konto ein?", category: "Setup", tags: ["email", "mdm"] }, { id: 'kb-2', title: "Was ist ein AV-Vertrag?", category: "DSGVO", tags: ["datenschutz", "vertrag"] }, { id: 'kb-3', title: "Wie teile ich ein Moodboard?", category: "Kollaboration", tags: ["moodboard", "sharing"] } ] };
-        const mockLearningPaths = [ { id: 'lp1', title: "Onboarding für neue Künstler:innen", description: "Alle Grundlagen für einen erfolgreichen Start.", targetRole: "Künstler", modules: [ { id: 'm1-1', title: "Willkommen im Team!", type: 'video' }, { id: 'm1-2', title: "Unsere Kommunikations-Tools", type: 'text', content: 'Wir nutzen Slack für die tägliche Kommunikation und Asana für das Projektmanagement...' }, { id: 'm1-3', title: "Grundlagen der GEMA-Meldung", type: 'text', content: 'Jeder Live-Auftritt muss gemeldet werden...' }, { id: 'm1-4', title: "Wissens-Check: Kommunikation", type: 'quiz', content: { question: "Welches Tool nutzen wir für das Projektmanagement?", options: ["Slack", "Asana", "Trello"], correctAnswerIndex: 1 }} ] }, { id: 'lp2', title: "Einführung für Freelance-Booker", description: "So arbeitest du effektiv mit uns.", targetRole: "Freelancer", modules: [ { id: 'm2-1', title: "Übersicht unserer Künstler-Roster", type: 'text' }, { id: 'm2-2', title: "Der Booking-Prozess", type: 'video' }, { id: 'm2-3', title: "Wissens-Check: Verträge", type: 'quiz', content: { question: "Wo findest du die Vertragsvorlagen?", options: ["Google Drive", "SmartLibrary"], correctAnswerIndex: 1 }} ] } ];
-        const dsgvoQuestions = [ { id: 'q1', text: "Führst du ein Verzeichnis von Verarbeitungstätigkeiten (VVT)?" }, { id: 'q2', text: "Hast du eine Datenschutzerklärung auf deiner Webseite?" }, { id: 'q3', text: "Schließt du Auftragsverarbeitungs-Verträge (AVV) mit Dienstleistern ab?" } ];
-        const priorityColors = { low: 'bg-green-500', medium: 'bg-yellow-500', high: 'bg-red-500' };
-        const initialActivities = [
-            { id: 'act_1', type: 'task_completed', text: 'Pressemitteilung fertiggestellt', project: 'Album Release', time: 'vor 2 Stunden' },
-            { id: 'act_2', type: 'file_uploaded', text: 'Cover-Artwork hochgeladen', project: 'Album Release', time: 'vor 4 Stunden' },
-            { id: 'act_3', type: 'task_completed', text: 'Social Media Plan erstellt', project: 'Marketing Campaign', time: 'gestern' },
-            { id: 'act_4', type: 'comment_added', text: 'Feedback zu Moodboard erhalten', project: 'Album Release', time: 'vor 2 Tagen' }
-        ];
-        const initialUser = {
+        // Diese Zeilen wurden entfernt, da die Variablen bereits weiter oben deklariert wurden
             uid: 'demo-user-123',
             email: 'demo@example.com',
             displayName: 'Demo Benutzer',
