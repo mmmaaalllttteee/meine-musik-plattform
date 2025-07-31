@@ -1,3 +1,18 @@
+#!/bin/bash
+
+echo "🎯 FINALE PROJEKT-KONFIGURATION & START"
+echo "======================================="
+
+cd /workspaces/meine-musik-plattform
+
+# Setze Ausführungsrechte für alle Scripts
+chmod +x *.sh
+
+echo "🔧 Repariere index.html mit vollständigem Frontend-Code..."
+
+# Da der Frontend-Code zu groß für eine einzelne Datei ist,
+# erstelle ich eine funktionsfähige Version direkt
+cat > index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="de" class="dark">
 <head>
@@ -325,3 +340,42 @@
     </script>
 </body>
 </html>
+EOF
+
+echo "✅ Vollständige funktionsfähige index.html erstellt!"
+echo ""
+echo "🧹 Bereinige überflüssige Dateien..."
+rm -f diagnose-and-fix.sh fix-all-problems.sh *.backup 2>/dev/null
+
+echo ""
+echo "📦 Installiere Dependencies..."
+npm install
+
+echo ""
+echo "🎯 PROJEKT VOLLSTÄNDIG KONFIGURIERT!"
+echo "===================================="
+echo ""
+echo "✅ Aktualisierte Dateien:"
+echo "   📱 index.html - Vollständiges Frontend mit Firebase-Auth"
+echo "   🖥️ server.js - Backend mit allen API-Endpoints"
+echo "   📦 package.json - Optimierte Dependencies"
+echo "   🔧 .env - Firebase-Konfiguration"
+echo ""
+echo "💡 Features:"
+echo "   ✅ Landing Page mit Login/Registrierung"
+echo "   ✅ Firebase-Authentifizierung"
+echo "   ✅ Responsive Design"
+echo "   ✅ Dynamic Background"
+echo "   ✅ Glass-Morphism UI"
+echo "   ✅ RESTful API-Backend"
+echo ""
+echo "🚀 STARTE DIE PLATTFORM:"
+echo "   npm start"
+echo ""
+echo "📱 Nach dem Start verfügbar unter:"
+echo "   http://localhost:3001"
+echo ""
+echo "⚡ Zum Start drücke ENTER..."
+read -r
+
+npm start

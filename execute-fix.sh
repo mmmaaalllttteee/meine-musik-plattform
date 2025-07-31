@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🔍 FÜHRE VOLLSTÄNDIGE SYSTEM-DIAGNOSE & REPARATUR AUS..."
+echo "� SOFORTIGER PROBLEMFIX..."
 cd /workspaces/meine-musik-plattform
-chmod +x diagnose-and-fix.sh
-./diagnose-and-fix.sh
+chmod +x quick-fix.sh
+./quick-fix.sh
