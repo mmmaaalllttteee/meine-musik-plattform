@@ -1,3 +1,46 @@
+#!/bin/bash
+
+echo "🔧 VOLLSTÄNDIGE PROBLEMBEHEBUNG & STARTUP..."
+echo "============================================="
+
+cd /workspaces/meine-musik-plattform
+
+# 1. Stelle sicher, dass package.json existiert
+if [ ! -f "package.json" ]; then
+    if [ -f "package-final.json" ]; then
+        cp package-final.json package.json
+        echo "✅ package.json wiederhergestellt"
+    else
+        echo "❌ package.json fehlt - erstelle neue Version"
+        cat > package.json << 'EOF'
+{
+  "name": "meine-musik-plattform",
+  "version": "1.0.0",
+  "description": "Eine professionelle Musik-Business-Plattform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.7.0"
+  },
+  "keywords": ["musik", "business", "plattform"],
+  "author": "Team",
+  "license": "MIT"
+}
+EOF
+    fi
+fi
+
+# 2. Erstelle funktionsfähige index.html
+echo "🔧 Erstelle vollständige index.html..."
+cat > index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="de" class="dark">
 <head>
@@ -319,3 +362,100 @@
     </script>
 </body>
 </html>
+EOF
+
+echo "✅ Vollständige index.html erstellt"
+
+# 3. Stelle server.js sicher
+if [ ! -f "server.js" ]; then
+    echo "🔧 Erstelle server.js..."
+    cat > server.js << 'EOF'
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const path = require('path');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+            imgSrc: ["'self'", "data:", "https:", "http:"],
+            connectSrc: ["'self'", "https:", "http:"],
+            fontSrc: ["'self'", "https:", "data:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'self'"]
+        }
+    }
+}));
+
+app.use(compression());
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+
+// API Routes
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Musik-Plattform Backend is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/api/config/firebase', (req, res) => {
+    res.json({
+        apiKey: "demo-api-key",
+        authDomain: "meine-musikplattform.firebaseapp.com",
+        projectId: "meine-musikplattform"
+    });
+});
+
+// Serve main app
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🎵 Musik-Plattform Backend started successfully`);
+    console.log(`📱 Frontend: http://localhost:${PORT}`);
+    console.log(`⚕️ Health: http://localhost:${PORT}/api/health`);
+});
+EOF
+    echo "✅ server.js erstellt"
+fi
+
+# 4. Installiere Dependencies
+echo ""
+echo "📦 Installiere Dependencies..."
+npm install
+
+if [ $? -eq 0 ]; then
+    echo "✅ Dependencies erfolgreich installiert!"
+    echo ""
+    echo "🚀 Starte Server..."
+    echo "📍 Frontend: http://localhost:3001"
+    echo "⚕️ Health: http://localhost:3001/api/health"
+    echo ""
+    echo "💡 Öffne http://localhost:3001 im Browser!"
+    echo "🛑 Zum Beenden: Ctrl+C"
+    echo ""
+    echo "🎵 ALLE PROBLEME BEHOBEN - Server startet jetzt..."
+    
+    npm start
+else
+    echo "❌ Fehler bei der Installation"
+    echo "🎭 Verwende Demo-Modus: Öffne index.html direkt im Browser"
+fi

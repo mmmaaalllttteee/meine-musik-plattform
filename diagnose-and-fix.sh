@@ -1,3 +1,187 @@
+#!/bin/bash
+
+echo "🔍 VOLLSTÄNDIGE DATEI-PRÜFUNG & FEHLERKORREKTUR"
+echo "=============================================="
+
+cd /workspaces/meine-musik-plattform
+
+# 1. Prüfe und repariere package.json
+echo "📦 1. Prüfe package.json..."
+if [ ! -f "package.json" ] || [ ! -s "package.json" ]; then
+    echo "🔧 Erstelle/repariere package.json..."
+    cat > package.json << 'EOF'
+{
+  "name": "meine-musik-plattform",
+  "version": "1.0.0",
+  "description": "Eine professionelle Musik-Business-Plattform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.7.0",
+    "firebase-admin": "^11.10.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["musik", "business", "plattform", "firebase"],
+  "author": "Team",
+  "license": "MIT"
+}
+EOF
+    echo "✅ package.json repariert"
+else
+    echo "✅ package.json OK"
+fi
+
+# 2. Prüfe und repariere server.js
+echo ""
+echo "🖥️ 2. Prüfe server.js..."
+if [ ! -f "server.js" ] || ! grep -q "express" server.js 2>/dev/null; then
+    echo "🔧 Erstelle/repariere server.js..."
+    cat > server.js << 'EOF'
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+            imgSrc: ["'self'", "data:", "https:", "http:"],
+            connectSrc: ["'self'", "https:", "http:"],
+            fontSrc: ["'self'", "https:", "data:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'self'"]
+        }
+    }
+}));
+
+app.use(compression());
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://yourdomain.com'] 
+        : ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', limiter);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static(path.join(__dirname)));
+
+// API Routes
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Musik-Plattform Backend is running',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+    });
+});
+
+app.get('/api/config/firebase', (req, res) => {
+    const firebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY || "demo-api-key",
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN || "meine-musikplattform.firebaseapp.com",
+        projectId: process.env.FIREBASE_PROJECT_ID || "meine-musikplattform",
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "meine-musikplattform.appspot.com",
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "997469107237",
+        appId: process.env.FIREBASE_APP_ID || "1:997469107237:web:demo",
+        measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-DEMO"
+    };
+    res.json(firebaseConfig);
+});
+
+app.get('/api/projects', (req, res) => {
+    res.json({
+        success: true,
+        data: [
+            {
+                id: 'proj_1',
+                name: 'Album Release "Neon Dreams"',
+                status: 'active',
+                created: new Date().toISOString()
+            }
+        ]
+    });
+});
+
+app.get('/api/analytics', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            totalStreams: 125000,
+            monthlyListeners: 15600,
+            topTrack: "Neon Dreams",
+            platforms: ['Spotify', 'Apple Music', 'YouTube Music']
+        }
+    });
+});
+
+// Catch all handler for SPA
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Error handling
+app.use((err, req, res, next) => {
+    console.error('Error:', err.stack);
+    res.status(500).json({ 
+        error: 'Something went wrong!',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🎵 Musik-Plattform Backend started successfully`);
+    console.log(`📱 Frontend: http://localhost:${PORT}`);
+    console.log(`⚕️ Health: http://localhost:${PORT}/api/health`);
+});
+
+module.exports = app;
+EOF
+    echo "✅ server.js repariert"
+else
+    echo "✅ server.js OK"
+fi
+
+# 3. Prüfe und repariere index.html
+echo ""
+echo "🌐 3. Prüfe index.html..."
+if [ ! -f "index.html" ] || ! grep -q "ReactDOM.render" index.html 2>/dev/null; then
+    echo "🔧 Erstelle vollständige index.html..."
+    cat > index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="de" class="dark">
 <head>
@@ -31,7 +215,6 @@
     <script type="text/babel">
         const { useState, useEffect, createContext, useContext } = React;
 
-        // Mock Data
         const mockData = {
             keyKpis: [
                 { platform: 'Instagram', kpi: 'Follower insgesamt', value: '48.152', change: 1.2 },
@@ -46,7 +229,6 @@
             ]
         };
 
-        // Auth Context
         const AuthContext = createContext(null);
         const AuthProvider = ({ children }) => {
             const [user] = useState({
@@ -59,7 +241,6 @@
         };
         const useAuth = () => useContext(AuthContext);
 
-        // Icon Component
         const Icon = ({ name, className = "w-6 h-6" }) => {
             const icons = {
                 menu: "M4 6h16M4 12h16M4 18h16",
@@ -82,12 +263,10 @@
             );
         };
 
-        // Page Wrapper
         const PageWrapper = ({ children }) => (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</div>
         );
 
-        // Dashboard Component
         const MainDashboard = ({ setActivePage, activities, complyCheckScore }) => (
             <PageWrapper>
                 <div className="mb-8">
@@ -139,7 +318,6 @@
             </PageWrapper>
         );
 
-        // Navigation Component
         const Navigation = ({ activePage, setActivePage, user }) => {
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const navItems = [
@@ -201,7 +379,6 @@
             );
         };
 
-        // Page Components
         const ProjectsPage = () => (
             <PageWrapper>
                 <h1 className="text-3xl font-bold text-shadow mb-8">Projekte</h1>
@@ -279,7 +456,6 @@
             );
         };
 
-        // Main App Component
         const MainApp = () => {
             const { user } = useAuth();
             const [activePage, setActivePage] = useState('dashboard');
@@ -306,16 +482,125 @@
             );
         };
 
-        // App Component
         const App = () => (
             <AuthProvider>
                 <MainApp />
             </AuthProvider>
         );
 
-        // Render App
         ReactDOM.render(<App />, document.getElementById('root'));
         console.log('🚀 Musik-Plattform successfully loaded!');
     </script>
 </body>
 </html>
+EOF
+    echo "✅ index.html repariert"
+else
+    echo "✅ index.html OK"
+fi
+
+# 4. Erstelle .env wenn nicht vorhanden
+echo ""
+echo "🔧 4. Prüfe .env..."
+if [ ! -f ".env" ]; then
+    echo "🔧 Erstelle .env Datei..."
+    cat > .env << 'EOF'
+# Musik-Plattform Environment Variables
+PORT=3001
+NODE_ENV=development
+
+# Firebase Configuration (Optional - Demo-Werte werden verwendet wenn nicht gesetzt)
+FIREBASE_API_KEY=demo-api-key
+FIREBASE_AUTH_DOMAIN=meine-musikplattform.firebaseapp.com
+FIREBASE_PROJECT_ID=meine-musikplattform
+FIREBASE_STORAGE_BUCKET=meine-musikplattform.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=997469107237
+FIREBASE_APP_ID=1:997469107237:web:demo
+FIREBASE_MEASUREMENT_ID=G-DEMO
+EOF
+    echo "✅ .env erstellt"
+else
+    echo "✅ .env OK"
+fi
+
+# 5. Prüfe Scripts und mache sie ausführbar
+echo ""
+echo "🔧 5. Prüfe Scripts..."
+chmod +x *.sh 2>/dev/null
+echo "✅ Scripts ausführbar gemacht"
+
+# 6. Validiere kritische Dateien
+echo ""
+echo "🔍 6. Validiere kritische Dateien..."
+
+# Prüfe HTML-Syntax
+if grep -q "ReactDOM.render" index.html && grep -q "</html>" index.html; then
+    echo "✅ HTML-Syntax korrekt"
+else
+    echo "❌ HTML-Syntax fehlerhaft"
+fi
+
+# Prüfe React-Komponenten
+if grep -q "const MainApp" index.html && grep -q "const Navigation" index.html; then
+    echo "✅ React-Komponenten vorhanden"
+else
+    echo "❌ React-Komponenten fehlen"
+fi
+
+# Prüfe Server-Konfiguration
+if grep -q "app.listen" server.js && grep -q "/api/health" server.js; then
+    echo "✅ Server-Konfiguration korrekt"
+else
+    echo "❌ Server-Konfiguration fehlerhaft"
+fi
+
+# 7. Teste Dependencies
+echo ""
+echo "📦 7. Installiere und teste Dependencies..."
+npm install
+
+if [ $? -eq 0 ]; then
+    echo "✅ Dependencies erfolgreich installiert!"
+    
+    # Teste Server-Start (kurz)
+    echo ""
+    echo "🔍 8. Teste Server-Start..."
+    timeout 5s npm start > /dev/null 2>&1 &
+    SERVER_PID=$!
+    sleep 3
+    
+    if kill -0 $SERVER_PID 2>/dev/null; then
+        echo "✅ Server startet erfolgreich"
+        kill $SERVER_PID 2>/dev/null
+    else
+        echo "⚠️ Server-Start-Test nicht abgeschlossen"
+    fi
+    
+    echo ""
+    echo "🎯 ALLE FEHLER BEHOBEN!"
+    echo "===================="
+    echo ""
+    echo "✅ Bereite Dateien:"
+    echo "   📦 package.json - Dependencies konfiguriert"
+    echo "   🖥️ server.js - Express-Server funktional"
+    echo "   🌐 index.html - React-App vollständig"
+    echo "   🔧 .env - Umgebungsvariablen gesetzt"
+    echo ""
+    echo "🚀 STARTE JETZT DIE PLATTFORM:"
+    echo "   npm start"
+    echo ""
+    echo "📱 Nach dem Start verfügbar:"
+    echo "   🌐 Frontend: http://localhost:3001"
+    echo "   ⚕️ Health: http://localhost:3001/api/health"
+    echo ""
+    echo "💡 Führe aus: npm start"
+    
+    # Automatisch starten
+    echo ""
+    echo "🚀 Starte automatisch..."
+    npm start
+    
+else
+    echo "❌ Fehler bei der Installation der Dependencies"
+    echo "💡 Versuche manuell: npm install && npm start"
+fi

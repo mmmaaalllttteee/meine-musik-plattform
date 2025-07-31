@@ -1,6 +1,5 @@
 #!/bin/bash
+echo "🔍 FÜHRE VOLLSTÄNDIGE SYSTEM-DIAGNOSE & REPARATUR AUS..."
 cd /workspaces/meine-musik-plattform
-chmod +x fix-html.sh
-./fix-html.sh
-echo "✅ Reparatur abgeschlossen!"
-echo "🚀 Starte jetzt: npm install && npm start"
+chmod +x diagnose-and-fix.sh
+./diagnose-and-fix.sh
