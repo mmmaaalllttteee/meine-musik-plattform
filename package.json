@@ -1,37 +1,26 @@
 {
-  "name": "meine-musik-plattform",
-  "version": "1.0.0",
-  "description": "Musik-Business-Plattform",
-  "main": "server-simple.js",
+  "name": "wmiw-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "We make IT work – modular collaboration platform for music professionals.",
+  "author": "We make IT work",
+  "license": "MIT",
   "scripts": {
-    "start": "node server-simple.js",
-    "start-full": "node server.js",
-    "dev": "nodemon server-simple.js",
-    "test": "echo \"No tests specified\""
-  },
-  "dependencies": {
-    "compression": "^1.7.4",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "helmet": "^7.0.0",
-    "express-rate-limit": "^6.7.0"
+    "dev:web": "pnpm --filter web dev",
+    "build:web": "pnpm --filter web build",
+    "lint:web": "pnpm --filter web lint",
+    "dev:api": "pnpm --filter api start:dev",
+    "build:api": "pnpm --filter api build",
+    "start:api": "pnpm --filter api start:prod",
+    "dev": "pnpm run dev:web & pnpm run dev:api",
+    "format": "pnpm format --recursive",
+    "lint": "pnpm lint --recursive",
+    "test": "pnpm test --recursive"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@biomejs/biome": "^1.7.0"
   },
-  "keywords": [
-    "musik",
-    "business",
-    "plattform",
-    "firebase",
-    "react",
-    "analytics",
-    "projektmanagement"
-  ],
-  "author": "Team",
-  "license": "MIT",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.18.0"
   }
 }

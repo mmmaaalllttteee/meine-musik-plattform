@@ -1,72 +1,44 @@
-# 🎵 Musik-Plattform
+# We make IT work – Service Hub
 
-Eine professionelle Musik-Business-Plattform für Künstler und Labels.
+Dieses Monorepo stellt das Grundgerüst der mandantenfähigen Musikplattform bereit. Es folgt der in der Spezifikation
+beschriebenen Architektur mit einem Next.js Frontend (App Router) und einem NestJS Backend.
 
-## ✅ Probleme behoben
+## Struktur
 
-Die Anwendung wurde komplett repariert und ist jetzt voll funktionsfähig:
-
-- ✅ Alle Syntax-Fehler behoben
-- ✅ Doppelte Deklarationen entfernt  
-- ✅ Sauberer React-Code
-- ✅ Funktionierender Express-Server
-- ✅ Alle API-Endpoints aktiv
-- ✅ Responsive Design
-
-## 🚀 Schnellstart
-
-### Methode 1: Start-Script verwenden
-```bash
-cd /workspaces/meine-musik-plattform
-chmod +x start.sh
-./start.sh
+```
+apps/
+  web/      # Next.js 13 App Router mit Tailwind, Framer Motion, Zustand
+  api/      # NestJS API mit modularer Architektur und TypeORM-Entities
+packages/
+  ui/       # Wiederverwendbare Glass-Komponenten
+  types/    # Geteilte TypeScript-Interfaces
 ```
 
-### Methode 2: Manuell starten
+## Frontend Highlights
+- Liquid-Glass Landingpage mit Hero, Feature-Gitter, Pricing und Security-Sektion
+- KPI-Bento Mockup mit wiederverwendbarer `KPIWidget` Komponente
+- Theme-Logik via `TimeAwareBackground` und Zustand Store für UI-Präferenzen
+
+## Backend Highlights
+- Authentifizierung mit Register- und Login-Endpoints (JWT-basierter Token-Return)
+- Projekte, Boards, Tasks, Files, Analytics, Templates, Shares und Settings Module mit exemplarischen Endpoints
+- Health Endpoint (`/health`) für Monitoring und Testbarkeit
+- TypeORM Entities für `users`, `organizations`, `projects`
+
+## Erste Schritte
+
 ```bash
-cd /workspaces/meine-musik-plattform
-npm install
-npm start
+pnpm install
+pnpm dev:web      # Frontend
+pnpm dev:api      # Backend
 ```
 
-## 📱 Nach dem Start verfügbar
+Um eine Datenbank anzubinden, setze die Umgebungsvariable `DATABASE_URL` (PostgreSQL). Standardmäßig laufen die Mock-
+Implementierungen in Memory.
 
-- **Frontend:** http://localhost:3001
-- **Health Check:** http://localhost:3001/api/health
-- **Firebase Config:** http://localhost:3001/api/config/firebase
-
-## 🛠 Features
-
-- **Dashboard:** Übersicht über KPIs und Aktivitäten
-- **Projekte:** Musikprojekte verwalten
-- **Analytics:** Performance-Metriken
-- **Library:** Vorlagen und Ressourcen
-- **Support:** KI-Assistent und Hilfe
-- **Learning:** Lernpfade für das Musikbusiness
-- **Comply:** DSGVO-Compliance-Tools
-- **Profil:** Benutzereinstellungen
-
-## 🔧 Technische Details
-
-- **Frontend:** React 18 mit Tailwind CSS
-- **Backend:** Express.js mit Security-Middleware
-- **Database:** Firebase (optional)
-- **Styling:** Glass-Morphism Design
-- **Responsive:** Mobile-first Design
-
-## 🎯 Demo-Modus
-
-Die Anwendung läuft standardmäßig im Demo-Modus mit Mock-Daten. 
-Alle Features sind verfügbar, aber Daten werden nicht persistent gespeichert.
-
-## 🔒 Sicherheit
-
-- Helmet für HTTP Security Headers
-- CORS-Schutz
-- Rate Limiting
-- Input-Sanitization
-- CSP (Content Security Policy)
-
-## 📝 Lizenz
-
-MIT License
+## Nächste Schritte
+- Vollständige Persistenz der Module (Boards, Tasks, Files, Analytics) auf PostgreSQL
+- Integration von Strapi via ISR Hooks für Landing-Content und Ankündigungen
+- OAuth-Connectoren für GA4, Meta, TikTok, YouTube sowie Streaming-Portale
+- Echtzeit-Gateways (WebSockets) für Boards und Moodboard
+- CI/CD mit Tests (Jest, Playwright), Security-Scans und Infrastruktur als Code
